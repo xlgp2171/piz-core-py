@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "piz-core-py"
+version = "0.3.1"
+description = "piz core package"
+license = {text = "MIT"}
+authors = [{name = "xlgp2171", email = "xlgp2171@gmail.com"}]
+requires-python = ">=3.12"
+keywords = ["mapper-select", "ioc-framework"]
+dependencies = []
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = [
+    "piz_core",
+    "piz_core.deco",
+    "piz_core.infra",
+    "piz_core.util",
+]
+zip-safe = false

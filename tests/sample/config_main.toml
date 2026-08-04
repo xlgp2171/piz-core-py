@@ -1,0 +1,13 @@
+[piz.profiles]
+active = ["config_extra.toml"]
+
+[piz.information]
+title = "piz-core-py"
+version = "0.1.0"
+contact-name = "piz"
+project-name = "piz-core"
+
+[dev.datasource]
+username = "root"
+password = "root"
+
