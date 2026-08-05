@@ -48,7 +48,7 @@ from piz_core.infra.db import BaseMapper, SqlDatabase
 from piz_core.infra.event import BaseEvent, event_bus
 from piz_core.infra.ioc import environment, Injected, Prop
 from piz_core.infra.sqlite import SqliteDatabase
-from piz_core.util import now_as_string, dataclass_to_tuple
+from piz_core.util import now_as_string, dataclass_values
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ class UserService:
         user = User(_id := id_generator.next_id(), username, password, status=self._def_enabled)
 
         with self._mapper.transaction():
-            return _id if self._mapper.insert_user(dataclass_to_tuple(user)) > 0 else -1
+            return _id if self._mapper.insert_user(dataclass_values(user)) > 0 else -1
     # 业务方法
     def login(self, username: str, password: str) -> bool:
         user = self._mapper.select_user_by_username(username, password)
