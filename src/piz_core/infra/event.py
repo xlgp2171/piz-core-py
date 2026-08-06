@@ -1,9 +1,10 @@
 """ 事件监听发布组件
 
-:version: 0.3.260725
+:version: 0.3.260805
 """
 from __future__ import annotations
 
+import inspect
 import logging
 import weakref
 from collections import defaultdict
@@ -69,13 +70,12 @@ class _EventBus:
             if not listeners:
                 del self._listeners[event_type]
 
-    # noinspection PyTypeChecker,PyBroadException
     @validate_types
     def publish(self, event: BaseEvent):
         """ 时间发布
         """
         # 解析父类事件也一并响应
-        for klass in (event_type := type(event)).__mro__:
+        for klass in inspect.getmro(event_type := type(event)):
             if isinstance(klass, type) and issubclass(klass, BaseEvent) and klass in self._listeners:
                 removed, listeners = [], self._listeners[klass]
 

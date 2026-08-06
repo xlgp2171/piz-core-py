@@ -1,9 +1,10 @@
 """ Sqlite3组件
 
-:version: 0.3.260802
+:version: 0.3.260805
 """
 from __future__ import annotations
 
+import inspect
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -152,7 +153,7 @@ class MapperMeta(type):
         cls = super().__new__(mcs, name, bases, ns, **kwargs)
         # 语句注册表（继承父类）
         # 若参数为双下划线会触发名称改写为_MapperMeta__statements
-        cls._statements = {k: v for base in reversed(cls.__mro__[1:]) for k, v in getattr(
+        cls._statements = {k: v for base in reversed(inspect.getmro(cls)[1:]) for k, v in getattr(
             base, "_statements", {}).items()}
         # 遍历所有成员
         for member_name, member in ns.items():
@@ -209,7 +210,6 @@ class BaseMapper(Generic[D], metaclass=MapperMeta):
     _impl: Injected[D]
     """ 数据操作实现接口 """
 
-    # noinspection PyTypeChecker
     def __init_subclass__(cls, *, impl_type: type[D] | None = None, impl_name: str = "", **kwargs):
         """
         :param impl_type: 实现类型
@@ -220,7 +220,7 @@ class BaseMapper(Generic[D], metaclass=MapperMeta):
         super().__init_subclass__(**kwargs)
         # 构建描述符
         (injected := Injected(instance_type=impl_type, instance_name=impl_name)).__set_name__(cls, "_impl")
-        # 忽略IDE警告
+        # NOTE(xlgp2171): 能直接判断类型，可忽略IDE警告
         cls._impl = injected
 
     def transaction(self) -> ContextManager[D]:

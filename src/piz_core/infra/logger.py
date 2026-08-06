@@ -164,7 +164,6 @@ class _LogPublishHandler(_LogBaseHandler):
             if self._lpd.mode == LogMode.PUBLISH:
                 record.msg = EMPTY
 
-    # noinspection PyBroadException
     def _publish(self, record: logging.LogRecord):
         try:
             # 与计算，是否需要发布
@@ -209,7 +208,6 @@ _SYS_LOG_HANDLE: Final[_LogStreamHandler] = _LogStreamHandler().apply_default_fo
 """ 系统默认日志处理器 """
 
 
-# noinspection PyArgumentList
 @validate_types
 def setup_logging(file_name: str = "", level: int = logging.INFO, *, log_format: str = LOG_SIMPLE_FORMAT,
                  console: bool = True, publish_func: Callable[[SysTag, str, str], None] | None = None,

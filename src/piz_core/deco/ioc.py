@@ -1,6 +1,6 @@
 """ 依赖注入装饰器
 
-:version: 0.2.260724
+:version: 0.2.260805
 """
 import inspect
 import weakref
@@ -144,7 +144,7 @@ def _assemble(instance: Any):
     """
     called = set()
     # 扫描实例的所有MRO（包括父类）
-    for klass in type(instance).__mro__:
+    for klass in inspect.getmro(type(instance)):
         # 遍历对应类的所有成员（若重写方法也会被再次调用）
         for member_name, member in vars(klass).items():
             # __init__ 的注入在实例化时已由 wrapper 完成，必须跳过，重写的方法调用也跳过

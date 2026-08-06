@@ -1,6 +1,6 @@
 """ 日期时间（datetime）处理工具
 
-:version: 0.3.260726
+:version: 0.3.260805
 """
 import calendar
 import threading
@@ -73,7 +73,6 @@ class StopWatch:
             self._task_name, self._start_ms = name, self._perf_ms()
         return self
 
-    # noinspection PyTypeChecker
     def stop(self) -> "StopWatch":
         """ 停止当前计时器
 
@@ -86,7 +85,6 @@ class StopWatch:
             self._print_func(self.last_elapsed, self._item)
         return self
 
-    # noinspection PyTypeChecker
     def _stop_unsafe(self):
         """ 停止当前计时器
 
@@ -101,10 +99,11 @@ class StopWatch:
         self._total_ms += self._last_ms
         # 若需要保留历史信息
         if self._keep_history:
-            self._history.append(TimeTask(self._task_name, self._last_ms))
+            from piz_core.util.prim import default_string
+
+            self._history.append(TimeTask(default_string(self._task_name), self._last_ms))
         self._task_name, self._start_ms = None, -1
 
-    # noinspection PyBroadException
     def reset(self) -> "StopWatch":
         """ 重置当前计时器（清空缓存，重置最后一次耗时和总耗时）
 
@@ -158,7 +157,6 @@ class StopWatch:
         self.start()
         return self
 
-    # noinspection PyBroadException
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any):
         """ with方法退出
         """
