@@ -1,12 +1,13 @@
 """ Web连接组件
 
-:version: 0.2.260727
+:version: 0.2.260805
 """
 from __future__ import annotations
 
 import json
 import ssl
 from dataclasses import dataclass
+from email.message import Message
 from http.client import HTTPMessage
 from typing import Any, Final, Annotated
 from urllib.error import HTTPError, URLError
@@ -32,7 +33,7 @@ class Response:
     """ HTTP状态码 """
     reason: str
     """ 状态描述 """
-    headers: HTTPMessage
+    headers: Message
     """ 响应头 """
     text: str
     """ 响应体（utf-8解码） """
@@ -153,6 +154,7 @@ class _HttpClient:
             # 4xx或5xx不抛异常，正常返回Response结构体
             charset = e.headers.get_content_charset() or "utf-8" if e.headers else "utf-8"
             text = (content := e.read()).decode(charset, errors="replace")
+            # NOTE(xlgp2171): 能直接判断类型，可忽略IDE警告
             return Response(status_code=e.code, reason=e.reason, headers=e.headers or HTTPMessage(),
                             text=text, content=content, url=e.url)
         except URLError as e:
@@ -160,29 +162,34 @@ class _HttpClient:
             raise ConnectionError(ErrorCode.N_110.format_message(e.reason)) from e
 
     @validate_types
-    def get(self, url: str, *, params: dict[str, Any] | list[tuple[str, Any]] | None = None, **kwargs) -> Response:
+    def get(self, url: str, *, params: dict[str, Any] | list[tuple[str, Any]] | None = None,
+            headers: dict[str, str] | None = None, **kwargs) -> Response:
         """ GET请求并返回响应结构体
 
         :param url: 请求地址
         :param params: 请求参数
+        :param headers: 请求头
         :param kwargs: 附加参数
         :raises ConnectionError: HTTP连接异常
         """
-        return self.request("GET", url, params=params, **kwargs)
+        return self.request("GET", url, params=params, headers=headers, **kwargs)
 
     @validate_types
     def post(self, url: str, *, params: dict[str, Any] | list[tuple[str, Any]] | None = None,
-             data: str | bytes | dict | None = None, json_data: Any = None, **kwargs) -> Response:
+             data: str | bytes | dict | None = None, json_data: Any = None,
+             headers: dict[str, str] | None = None, **kwargs) -> Response:
         """ POST请求并返回响应结构体
 
         :param url: 请求地址
         :param params: 请求参数
         :param data: 请求消息体
         :param json_data: 请求JSON消息体
+        :param headers: 请求头
         :param kwargs: 附加参数
         :raises ConnectionError: HTTP连接异常
         """
-        return self.request("POST", url, params=params, data=data, json_data=json_data, **kwargs)
+        return self.request(
+            "POST", url, params=params, data=data, json_data=json_data, headers=headers, **kwargs)
 
     @property
     def default_headers(self) -> dict[str, str]:
