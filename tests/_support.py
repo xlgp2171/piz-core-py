@@ -9,10 +9,11 @@ from piz_core.deco.event import event_listener
 from piz_core.infra import setup_logging, LOG_VERBOSE_FORMAT
 from piz_core.infra.db import BaseMapper, SqlDatabase
 from piz_core.infra.event import BaseEvent, event_bus
-from piz_core.infra.ioc import Qualifier, Injected, Prop
+from piz_core.infra.ioc import Injected, Prop, environment
 
 
 setup_logging("debug", logging.DEBUG, log_format=LOG_VERBOSE_FORMAT)
+environment.set_default_path("sample/config_main.toml")
 
 
 @dataclass
@@ -191,7 +192,7 @@ class DbService:
     _builder: DataBuilder
 
     @inject
-    def set(self, builder: Annotated[DataBuilder, Qualifier('data_builder')]):
+    def set(self, builder: Annotated[DataBuilder, Prop("piz.extra.impl")]):
         self._builder = builder
 
     def load_name(self) -> str:

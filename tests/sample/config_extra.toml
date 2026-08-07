@@ -1,6 +1,9 @@
 [piz.information]
 version = "0.2.0"
 
+[piz.extra]
+impl = "data_builder"
+
 [dev.datasource]
 #url = "jdbc:mysql://127.0.0.1:3306/demo"
 url = "sample/demo.db"

@@ -1,6 +1,6 @@
 """ 常量
 
-:version: 0.3.260725
+:version: 0.3.260807
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -105,7 +105,7 @@ class ErrorCode(BaseEnum):
     P_111 = ("P111", "instance function invalid,\tinstance name: {0}", "实例{0}的实例函数无效")
     P_200 = ("P200", "Parameter format invalid", "参数格式错误")
     P_210 = ("P210", "Parameter annotation metadata invalid", "参数注解元数据非法")
-    P_211 = ("P211", "Missing Qualifier in Annotated metadata,\tfunc: {0},\targs: {1}",
+    P_211 = ("P211", "Missing Qualifier/Prop in Annotated metadata,\tfunc: {0},\targs: {1}",
              "方法{0}参数{1}的Annotated注解缺少Qualifier定义")
     P_300 = ("P300", "Parameter mismatch", "参数不匹配")
     P_310 = ("P310", "Type mismatch,\texpected: {0},\tgot: {1}{2}", "类型不匹配为期望{0}实际{1}")

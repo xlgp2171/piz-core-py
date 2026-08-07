@@ -1,6 +1,6 @@
 """ 控制反转组件
 
-:version: 0.3.260725
+:version: 0.3.260807
 """
 from __future__ import annotations
 
@@ -384,15 +384,20 @@ class Prop(BaseDescriptor[Any]):
         self._default = default
         self._process_func = process_func
 
+    def get_value(self) -> Any:
+        """ 获取配置值
+        """
+        value = environment.get_config_value(self._key_path, default=self._default)
+        # 加工函数处理数据
+        return value if self._process_func is None else self._process_func(value)
+
     def __get__(self, instance: Any, owner: Any = None) -> Any:
         """ 描述符对应属性被调用时
 
         :param instance: 描述符宿主的实例
         :param owner: 描述符的宿主的类型
         """
-        value = environment.get_config_value(self._key_path, default=self._default)
-        # 加工函数处理数据
-        return value if self._process_func is None else self._process_func(value)
+        return self.get_value()
 
     def __set__(self, instance: Any, value: Any):
         """ 设置参数

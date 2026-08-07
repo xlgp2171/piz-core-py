@@ -9,7 +9,6 @@ from piz_core.util import real_path
 # infra/ioc和infra/event组件测试
 class TestIocEvent(unittest.TestCase):
     def test_container_and_event(self):
-        environment.set_default_path("sample/config_main.toml")
         service: DbService = container.resolve(instance_name="db_service")
         service.save_default_name()
         self.assertEqual(service.load_name(), "root")
@@ -23,7 +22,6 @@ class TestIocEvent(unittest.TestCase):
         self.assertEqual(service.get_security_key(), "token 1236")
 
     def test_environment(self):
-        environment.set_default_path("sample/config_main.toml")
         self.assertEqual(environment.get_config_value(f"{NAMESPACE}.information.version"), "0.2.0")
         self.assertEqual(environment.get_config_value("dev.username", default="user"), "user")
         self.assertEqual(environment.get_config_value(

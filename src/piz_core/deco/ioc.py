@@ -1,6 +1,6 @@
 """ 依赖注入装饰器
 
-:version: 0.2.260805
+:version: 0.2.260807
 """
 import inspect
 import weakref
@@ -9,8 +9,7 @@ from typing import TypeVar, ParamSpec, Callable, get_args, Any
 
 from piz_core.constants import NAMESPACE, ErrorCode
 from piz_core.infra.event import event_bus
-from piz_core.infra.ioc import Qualifier, container
-
+from piz_core.infra.ioc import Qualifier, container, Prop
 
 # 捕获任意参数签名
 P = ParamSpec("P")
@@ -39,12 +38,18 @@ def inject(target_func: Callable[P, T]) -> Callable[P, T]:
             # 若为Annotated类型
             if hasattr(annotation, '__metadata__'):
                 real_type, *metadata = get_args(annotation)
-                # 若包含名称，则按名称和类型进行匹配
-                if (qualifier := next((i for i in metadata if isinstance(i, Qualifier)), None)) is None:
+                # 尝试获取配置值
+                prop = next((i for i in metadata if isinstance(i, Prop)), None)
+                # 尝试获取定义值
+                qualifier = next((i for i in metadata if isinstance(i, Qualifier)), None)
+                # 若都未配置，则异常
+                if prop is None and qualifier is None:
                     # 注解缺失
                     raise ValueError(ErrorCode.P_211.format_message(target_func.__qualname__, _name))
+                # 优先获取配置中的值
+                instance_name = str(prop.get_value()) if prop is not None else qualifier.name
                 # 按照实际类型和指定名称进行匹配
-                if (instance := _try_resolve(None, qualifier.name, _value)) is None:
+                if (instance := _try_resolve(None, instance_name, _value)) is None:
                     continue
                 # 命中后再校验类型（real_type 可能是泛型别名）
                 if isinstance(real_type, type) and not isinstance(instance, real_type):
