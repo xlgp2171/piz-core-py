@@ -1,6 +1,6 @@
 """ Sqlite3组件
 
-:version: 0.3.260805
+:version: 0.3.260807
 """
 from __future__ import annotations
 
@@ -50,35 +50,15 @@ class Statement(ABC):
     """ 操作多条还是单条 """
     res_type: Any
     """ 返回类型 """
+    executor: type[Executor]
+    """ 执行器实现类 """
 
 
-@dataclass(frozen=True, slots=True)
-class SqlStatement(Statement):
-    """ SQL语句处理
-    """
-    sql: str
-    """ 操作的SQL """
-
-
-# 数据库操作基类
 class Database(Protocol):
+    """ 数据库操作基类
+    """
     # 事务
     def transaction(self) -> ContextManager[Self]: ...
-
-
-class SqlDatabase(Database):
-    """ SQL数据库操作
-    """
-    # 执行写语句，返回受影响行数
-    def execute(self, sql: str, params: tuple | dict = ()) -> int: ...
-    # 批量写入，返回受影响行数
-    def execute_many(self, sql: str, params: list) -> int: ...
-    # 查询单行，有结果返回dict否则返回None
-    def query_one(self, sql: str, params: tuple | dict = ()) -> dict | None: ...
-    # 查询单行，有结果返回基本类型否则返回default（默认None）
-    def query_value(self, sql: str, params: tuple | dict = (), default: Any = None) -> Any: ...
-    # 查询多行，返回list[dict]否则返回空列表
-    def query_many(self, sql: str, params: tuple | dict = ()) -> list[dict]: ...
 
 
 class Executor(Generic[D, S], ABC):
@@ -91,54 +71,16 @@ class Executor(Generic[D, S], ABC):
         """
         self._db: D = db
         self._stmt: S = stmt
+        # 验证是否能正确使用
+        self.validate()
+
+    @abstractmethod
+    def validate(self):
+        pass
 
     @abstractmethod
     def execute(self, arguments: dict[str, Any]) -> Any:
         raise method_unavailable_exception()
-
-
-class _SqlExecutor(Executor[SqlDatabase, SqlStatement]):
-    """ SQL处理器
-    """
-    def execute(self, arguments: dict[str, Any]) -> Any:
-        """ 根据参数字典执行DB接口
-
-        :raises TypeError: 类型不支持; 没有匹配的操作枚举; 查询操作不支持类型
-        :raises ValueError: 批量值长度不一致; 字段值获取异常; 参数值为空集合; 行数据为空; 不支持集合嵌套
-        """
-        # 构建sql和参数
-        sql, params = build_sql_and_params(self._stmt.sql, arguments)
-        logger.debug(LazyMessage(lambda: f"{CORE_TAG}Execute statement,\t\n\top: {self._stmt.op},\t"
-                                         f"\n\tmany: {self._stmt.many},\t\n\tsql: {sql},\t\n\tparams: {repr(params)}"))
-        # 匹配操作类型执行DB接口
-        match self._stmt.op:
-            case DbOp.SELECT:
-                # select只支持tuple传参
-                if not isinstance(params, tuple):
-                    # 查询操作不支持类型
-                    raise TypeError(ErrorCode.P_310.format_message(
-                        get_class_path(tuple), get_class_path(params), f",\top: {DbOp.SELECT},\t"
-                                                                f"class: {_SqlExecutor.__qualname__}"))
-                # 根据返回数据量设置映射数据
-                if self._stmt.many:
-                    # 集合数据查询
-                    result = self._db.query_many(sql, params)
-                    return [map_row(i, self._stmt.res_type) for i in result]
-                else:
-                    # 单个数据查询返回简单数据
-                    if self._stmt.res_type in (int, float, str, bool, datetime):
-                        return self._db.query_value(sql, params)
-                    # 单个数据查询返回结构体
-                    result = self._db.query_one(sql, params)
-                    return map_row(result, self._stmt.res_type)
-            case DbOp.INSERT | DbOp.UPDATE | DbOp.DELETE:
-                # 通过参数判断是集合处理还是单个处理并返回影响行数
-                return self._db.execute_many(
-                    sql, params) if isinstance(params, list) else self._db.execute(sql, params)
-            case _:
-                # 没有匹配的操作枚举
-                raise TypeError(ErrorCode.P_321.format_message(
-                    self._stmt.op, get_class_path(DbOp), f",\tclass: {get_class_path(_SqlExecutor)}"))
 
 
 class MapperMeta(type):
@@ -191,18 +133,16 @@ class MapperMeta(type):
             arguments, _ = bind_arguments(func, *[self, *args], **kwargs)
             arguments.pop("self", None)
             # 若stmt是SqlStatement
-            if isinstance(stmt, SqlStatement):
-                # sql的执行器必须配sql的数据库
-                if not isinstance(self._impl, SqlDatabase):
-                    # 类型不匹配
-                    raise TypeError(ErrorCode.S_231.format_message("SqlDatabase", get_class_path(self._impl)))
+            if isinstance(stmt, Statement):
                 # 执行操作
-                return _SqlExecutor(self._impl, stmt).execute(arguments)
+                return stmt.executor(self._impl, stmt).execute(arguments)
             else:
                 # 没有匹配的类型
                 raise TypeError(ErrorCode.P_310.format_message(
-                    get_class_path(SqlStatement), get_class_path(stmt), f",\tclass: {get_class_path(self)}"))
+                    get_class_path(Statement), get_class_path(stmt),
+                    f",\ttarget class: {get_class_path(self)}"))
         return _executor
+
 
 class BaseMapper(Generic[D], metaclass=MapperMeta):
     """ 数据映射基类
@@ -227,3 +167,78 @@ class BaseMapper(Generic[D], metaclass=MapperMeta):
         """ 事务方法（通过with包裹使用）
         """
         return self._impl.transaction()
+
+
+# ========== ========== ========== SQL实现相关 ========== ========== ==========
+@dataclass(frozen=True, slots=True)
+class SqlStatement(Statement):
+    """ SQL语句处理
+    """
+    sql: str
+    """ 操作的SQL """
+
+
+class SqlDatabase(Database):
+    """ SQL数据库操作
+    """
+    # 执行写语句，返回受影响行数
+    def execute(self, sql: str, params: tuple | dict = ()) -> int: ...
+    # 批量写入，返回受影响行数
+    def execute_many(self, sql: str, params: list) -> int: ...
+    # 查询单行，有结果返回dict否则返回None
+    def query_one(self, sql: str, params: tuple | dict = ()) -> dict | None: ...
+    # 查询单行，有结果返回基本类型否则返回default（默认None）
+    def query_value(self, sql: str, params: tuple | dict = (), default: Any = None) -> Any: ...
+    # 查询多行，返回list[dict]否则返回空列表
+    def query_many(self, sql: str, params: tuple | dict = ()) -> list[dict]: ...
+
+
+class SqlExecutor(Executor[SqlDatabase, SqlStatement]):
+    """ SQL处理器
+    """
+    def validate(self):
+        # sql的执行器必须配sql的数据库
+        if not isinstance(self._db, SqlDatabase):
+            # 类型不匹配
+            raise TypeError(ErrorCode.S_231.format_message(
+                get_class_path(SqlDatabase), get_class_path(self._db)))
+
+    def execute(self, arguments: dict[str, Any]) -> Any:
+        """ 根据参数字典执行DB接口
+
+        :raises TypeError: 类型不支持; 没有匹配的操作枚举; 查询操作不支持类型
+        :raises ValueError: 批量值长度不一致; 字段值获取异常; 参数值为空集合; 行数据为空; 不支持集合嵌套
+        """
+        # 构建sql和参数
+        sql, params = build_sql_and_params(self._stmt.sql, arguments)
+        logger.debug(LazyMessage(lambda: f"{CORE_TAG}Execute statement,\t\n\top: {self._stmt.op},\t"
+                                         f"\n\tmany: {self._stmt.many},\t\n\tsql: {sql},\t\n\tparams: {repr(params)}"))
+        # 匹配操作类型执行DB接口
+        match self._stmt.op:
+            case DbOp.SELECT:
+                # select只支持tuple传参
+                if not isinstance(params, tuple):
+                    # 查询操作不支持类型
+                    raise TypeError(ErrorCode.P_310.format_message(
+                        get_class_path(tuple), get_class_path(params), f",\top: {DbOp.SELECT},\t"
+                                                                f"class: {get_class_path(SqlExecutor)}"))
+                # 根据返回数据量设置映射数据
+                if self._stmt.many:
+                    # 集合数据查询
+                    result = self._db.query_many(sql, params)
+                    return [map_row(i, self._stmt.res_type) for i in result]
+                else:
+                    # 单个数据查询返回简单数据
+                    if self._stmt.res_type in (int, float, str, bool, datetime):
+                        return self._db.query_value(sql, params)
+                    # 单个数据查询返回结构体
+                    result = self._db.query_one(sql, params)
+                    return map_row(result, self._stmt.res_type)
+            case DbOp.INSERT | DbOp.UPDATE | DbOp.DELETE:
+                # 通过参数判断是集合处理还是单个处理并返回影响行数
+                return self._db.execute_many(
+                    sql, params) if isinstance(params, list) else self._db.execute(sql, params)
+            case _:
+                # 没有匹配的操作枚举
+                raise TypeError(ErrorCode.P_321.format_message(
+                    self._stmt.op, get_class_path(DbOp), f",\tclass: {get_class_path(SqlExecutor)}"))

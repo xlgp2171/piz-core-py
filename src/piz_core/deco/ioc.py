@@ -11,6 +11,7 @@ from piz_core.constants import NAMESPACE, ErrorCode
 from piz_core.infra.event import event_bus
 from piz_core.infra.ioc import Qualifier, container, Prop
 
+
 # 捕获任意参数签名
 P = ParamSpec("P")
 # 捕获返回值类型
@@ -44,8 +45,9 @@ def inject(target_func: Callable[P, T]) -> Callable[P, T]:
                 qualifier = next((i for i in metadata if isinstance(i, Qualifier)), None)
                 # 若都未配置，则异常
                 if prop is None and qualifier is None:
+                    from piz_core.util import get_func_name
                     # 注解缺失
-                    raise ValueError(ErrorCode.P_211.format_message(target_func.__qualname__, _name))
+                    raise ValueError(ErrorCode.P_211.format_message(get_func_name(target_func), _name))
                 # 优先获取配置中的值
                 instance_name = str(prop.get_value()) if prop is not None else qualifier.name
                 # 按照实际类型和指定名称进行匹配
@@ -53,9 +55,9 @@ def inject(target_func: Callable[P, T]) -> Callable[P, T]:
                     continue
                 # 命中后再校验类型（real_type 可能是泛型别名）
                 if isinstance(real_type, type) and not isinstance(instance, real_type):
-                    from piz_core.util import get_class_path
+                    from piz_core.util import get_class_path, get_func_name
                     # 类型不匹配
-                    error_hint = f",\targs: {_name},\tfunc: {target_func.__qualname__}"
+                    error_hint = f",\targs: {_name},\tfunc: {get_func_name(target_func)}"
                     raise TypeError(ErrorCode.P_310.format_message(
                         get_class_path(real_type), get_class_path(instance), error_hint))
             else:

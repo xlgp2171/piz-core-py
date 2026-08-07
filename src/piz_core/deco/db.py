@@ -1,10 +1,10 @@
 """ 数据操作装饰器
 
-:version: 0.3.260730
+:version: 0.3.260807
 """
 from typing import Callable
 
-from piz_core.infra.db import SqlStatement, DbOp
+from piz_core.infra.db import SqlStatement, DbOp, SqlExecutor
 
 
 def select(sql: str, /, *, many: bool | None = None, res_type: type = dict):
@@ -21,7 +21,7 @@ def select(sql: str, /, *, many: bool | None = None, res_type: type = dict):
         _many = (is_expected_annotation(annotation, list) or is_expected_annotation(
             annotation, tuple)) if many is None else many
         # 标记SQL语句操作（SQL操作使用SqlStatement）
-        func.__db_statement = SqlStatement(sql=sql, op=DbOp.SELECT, many=_many, res_type=res_type)
+        func.__db_statement = SqlStatement(sql=sql, op=DbOp.SELECT, many=_many, res_type=res_type, executor=SqlExecutor)
         return func
     return _decorator
 
@@ -30,7 +30,7 @@ def _sql_decorator(sql: str, op: DbOp):
     """
     def _decorator(func: Callable):
         # 标记SQL语句操作（SQL操作使用SqlStatement）
-        func.__db_statement = SqlStatement(sql=sql, op=op, many=False, res_type=dict)
+        func.__db_statement = SqlStatement(sql=sql, op=op, many=False, res_type=dict, executor=SqlExecutor)
         return func
     return _decorator
 
