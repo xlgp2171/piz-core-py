@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "piz-core-py"
-version = "0.3.1"
+version = "0.3.2"
 description = "piz core package"
 license = "MIT"
 license-files = ["LICENSE"]
