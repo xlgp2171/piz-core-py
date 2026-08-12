@@ -1,16 +1,14 @@
 """ 依赖注入装饰器
 
-:version: 0.2.260807
+:version: 0.3.260812
 """
 import inspect
-import weakref
 from functools import wraps
-from typing import TypeVar, ParamSpec, Callable, get_args, Any
+from typing import TypeVar, ParamSpec, Callable, get_args, Any, Sequence
 
 from piz_core.constants import NAMESPACE, ErrorCode
-from piz_core.infra.event import event_bus
-from piz_core.infra.ioc import Qualifier, container, Prop
-
+from piz_core.infra.event import register_hook
+from piz_core.infra.ioc import Qualifier, container, Prop, trigger_hooks, inject_hook
 
 # 捕获任意参数签名
 P = ParamSpec("P")
@@ -89,22 +87,25 @@ def _try_resolve(instance_type: type | None, instance_name: str, value: Any) -> 
             raise
         return None
 
-def component(target_cls: type | None = None, /, *, name: str | None = None) -> Callable | type:
+def component(target_cls: type | None = None, /, *, name: str | None = None,
+              hook_funcs: Sequence[Callable[[Any, str, Any], None]] | None = None) -> Callable | type:
     """ 类依赖装饰器
 
     - 将被装饰的类实例化并注册到容器（单例，饿汉式），类本身保持不变，仍可正常使用。
     - 用法1：@component # 默认名称为类名首字母小写
     - 用法2：@component(name="svc") # 可显式指定注册名称
+    - 用法3：@component(hook_funcs=[func]) # 用于初始化钩子函数注册
 
     :param target_cls: 被装饰的类（@component 无参形式时由解释器自动传入）
     :param name: 注册到容器的实例名称，默认按 Spring 规则取类名首字母小写
+    :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
     :raises ValueError: 实例函数无效
     """
     def _decorator(cls: type) -> type:
         from piz_core.util import decapitalize
         # 初始化函数
         def _new_instance() -> Any:
-            _assemble(instance := cls())
+            _assemble(instance := cls(), hook_funcs)
             return instance
         # 实例化并注册（ensure幂等：同名已注册时复用已有实例，不会重复实例化）
         container.ensure(name if name else decapitalize(cls.__name__), _new_instance)
@@ -113,7 +114,8 @@ def component(target_cls: type | None = None, /, *, name: str | None = None) -> 
     # 如果target_cls不是None，说明是直接使用无参装饰器
     return _decorator(target_cls) if target_cls is not None else _decorator
 
-def provide(target_func: Callable | None = None, /, *, name: str | None = None, eager: bool = True):
+def provide(target_func: Callable | None = None, /, *, name: str | None = None, eager: bool = True,
+            hook_funcs: Sequence[Callable[[Any, str, Any], None]] | None = None):
     """ 方法依赖装饰器
 
     - 将被装饰工厂函数的返回值注册到容器（单例）。装饰后再次调用该函数，
@@ -121,10 +123,12 @@ def provide(target_func: Callable | None = None, /, *, name: str | None = None, 
     - 用法1：@provide # 默认名称为函数名，装饰时立即执行并注册
     - 用法2：@provide(name="ds") # 显式指定注册名称
     - 用法3：@provide(eager=False) # 惰性注册为首次调用时才执行工厂函数
+    - 用法4：@provide(hook_funcs=[func]) # 用于初始化钩子函数注册
 
     :param target_func: 被装饰的工厂函数（@provide 无参形式时自动传入）
     :param name: 注册到容器的实例名称，默认取get_func_name()方法返回值
     :param eager: 是否在装饰时立即执行工厂函数完成注册，False为调用时（默认 True）
+    :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
     :raises ValueError: 实例函数无效
     """
     def _decorator(func: Callable[P, T]) -> Callable[P, T]:
@@ -134,7 +138,7 @@ def provide(target_func: Callable | None = None, /, *, name: str | None = None, 
             # 初始化函数
             def _new_instance() -> Any:
                 # 根据实例自动注入
-                _assemble(instance := func(*args, **kwargs))
+                _assemble(instance := func(*args, **kwargs), hook_funcs)
                 return instance
             from piz_core.util import get_func_name
             # 首次调用：执行工厂函数并注册（ensure 内部对 None 返回值会抛 ValueError）
@@ -146,25 +150,13 @@ def provide(target_func: Callable | None = None, /, *, name: str | None = None, 
     # 如果target_cls不是None，说明是直接使用无参装饰器
     return _decorator(target_func) if target_func is not None else _decorator
 
-def _assemble(instance: Any):
-    """ 扫描实例所有标记的方法并处理（沿 MRO 覆盖父类）
+def _assemble(instance: Any, hook_funcs: Sequence[Callable[[Any, str, Any], None]] | None):
+    """ 扫描实例所有标记的方法并按函数处理（沿 MRO 覆盖父类）
+
+    :param instance: 实例
+    :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
     """
-    called = set()
-    # 扫描实例的所有MRO（包括父类）
-    for klass in inspect.getmro(type(instance)):
-        # 遍历对应类的所有成员（若重写方法也会被再次调用）
-        for member_name, member in vars(klass).items():
-            # __init__ 的注入在实例化时已由 wrapper 完成，必须跳过，重写的方法调用也跳过
-            if member_name == "__init__" or member_name in called:
-                continue
-            called.add(member_name)
-            # 若为@inject标记则调用方法一次（注入）
-            if getattr(member, "__inject", None) == NAMESPACE:
-                getattr(instance, member_name)()
-            # 若为@event_listener标记则将方法注册
-            elif getattr(member, "__event_listener", None) == NAMESPACE:
-                func = getattr(instance, member_name)
-                ref_func = weakref.WeakMethod(func) if hasattr(func, "__self__") else weakref.ref(func)
-                # 将方法注入每个事件（采用弱引用方便释放）
-                for i in func.__event_type:
-                    event_bus.register(i, ref_func)
+    from piz_core.util import sequence_merge
+    # 去重后触发hooks（附加系统预设的hook）
+    trigger_hooks(
+        instance, *sequence_merge([inject_hook, register_hook], hook_funcs, key_func=id))

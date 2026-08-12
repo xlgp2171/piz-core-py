@@ -13,9 +13,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, TypeVar, overload, Generic, Final
+from typing import Any, Callable, TypeVar, overload, Generic, Final, Sequence
 
-from piz_core.constants import CORE_TAG, ErrorCode, ConfigConstant
+from piz_core.constants import CORE_TAG, ErrorCode, ConfigConstant, NAMESPACE
 from piz_core.deco import validate_types
 from piz_core.util import get_class_path, real_path, is_file, path_exists, get_resource_as_stream, get_nested, \
     dict_deep_merge, current_time_millis, method_unavailable_exception, path_stat, LazyMessage
@@ -154,9 +154,43 @@ class _Container:
                 self._type_index[type(instance)].add(instance_name)
                 return instance
 
+def inject_hook(instance: Any, member_name: str, member: Any):
+    """ 注入钩子函数
+
+    :param instance: 实例
+    :param member_name: 成员名称
+    :param member: 实例成员
+    """
+    # 若为@inject标记则调用方法一次（注入）
+    if getattr(member, "__inject", None) == NAMESPACE:
+        getattr(instance, member_name)()
+
 
 container: Final[_Container] = _Container()
 """ 容器处理单例 """
+
+
+@validate_types
+def trigger_hooks(instance: Any, *hook_funcs: Callable[[Any, str, Any], None]):
+    """ 扫描实例所有标记的方法并按函数处理（沿 MRO 覆盖父类）
+
+    :param instance: 实例
+    :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
+    """
+    if not hook_funcs:
+        return
+    called = set()
+    # 扫描实例的所有MRO（包括父类）
+    for klass in inspect.getmro(type(instance)):
+        # 遍历对应类的所有成员（若重写方法也会被再次调用）
+        for member_name, member in vars(klass).items():
+            # __init__ 的注入在实例化时已由 wrapper 完成，必须跳过，重写的方法调用也跳过
+            if member_name == "__init__" or member_name in called:
+                continue
+            called.add(member_name)
+            # 依次调用每个函数
+            for func in hook_funcs:
+                func(instance, member_name, member)
 
 
 class _Environment:

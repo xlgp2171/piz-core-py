@@ -278,6 +278,37 @@ class TestCollection(unittest.TestCase):
             result = collection.dict_deep_merge({"data": b"old"},{"data": b"new"})
             self.assertEqual(result, {"data": b"new"})
 
+    def test_sequence_merge(self):
+        with self.subTest(msg="两个序列都为 None"):
+            self.assertEqual(collection.sequence_merge(None, None), [])
+        with self.subTest(msg="左侧为 None"):
+            self.assertEqual(collection.sequence_merge(None, [1, 2, 3]), [1, 2, 3])
+        with self.subTest(msg="右侧为 None"):
+            self.assertEqual(collection.sequence_merge([1, 2, 3], None), [1, 2, 3])
+        with self.subTest(msg="不去重，直接拼接"):
+            self.assertEqual(collection.sequence_merge([1, 2, 2], [2, 3, 3]), [1, 2, 2, 2, 3, 3])
+        with self.subTest(msg="按值去重（简单类型）"):
+            self.assertEqual(
+                collection.sequence_merge([1, 2, 2], [2, 3, 3], key_func=lambda x: x), [1, 2, 3])
+        with self.subTest(msg="按对象身份去重（复杂类型）"):
+            # 值相同，不同对象
+            a, b = [1], [1]
+            # 和 a 同一对象
+            c = a
+            self.assertEqual(collection.sequence_merge([a, b], [c, b], key_func=id), [a, b])
+        with self.subTest(msg="顺序优先级：以第一次出现为主"):
+            self.assertEqual(
+                collection.sequence_merge([3, 1, 2], [1, 3, 4], key_func=lambda x: x), [3, 1, 2, 4])
+        with self.subTest(msg="空序列合并"):
+            self.assertEqual(collection.sequence_merge([], [1, 2], key_func=lambda x: x), [1, 2])
+            self.assertEqual(collection.sequence_merge([1, 2], [], key_func=lambda x: x), [1, 2])
+        with self.subTest(msg="tuple 作为输入"):
+            self.assertEqual(
+                collection.sequence_merge((1, 2), (2, 3), key_func=lambda x: x), [1, 2, 3])
+        with self.subTest(msg="字符串按值去重"):
+            self.assertEqual(collection.sequence_merge(["a", "b"], ["b", "c"],
+                                                       key_func=lambda x: x), ["a", "b", "c"])
+
     def test_dataclass_values(self):
         # 简单 dataclass 按字段顺序平铺
         simple = SimpleDC(name="Alice", age=30)

@@ -1,6 +1,6 @@
 """ 事件监听发布组件
 
-:version: 0.3.260805
+:version: 0.3.260812
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Callable, TypeVar, Final
 
-from piz_core.constants import CORE_TAG
+from piz_core.constants import CORE_TAG, NAMESPACE
 from piz_core.deco import validate_types
 from piz_core.util import current_time_millis, get_func_name, get_class_path
 
@@ -99,6 +99,22 @@ class _EventBus:
         """ 清空所有监听器
         """
         self._listeners.clear()
+
+def register_hook(instance: Any, member_name: str, member: Any):
+    """ 注入钩子函数
+
+    :param instance: 实例
+    :param member_name: 成员名称
+    :param member: 实例成员
+    """
+    # 若为@event_listener标记则将方法注册
+    if getattr(member, "__event_listener", None) == NAMESPACE:
+        func = getattr(instance, member_name)
+        # 区分weakref的构造方式（WeakMethod为类方法）
+        ref_func = weakref.WeakMethod(func) if hasattr(func, "__self__") else weakref.ref(func)
+        # 将方法注入每个事件（采用弱引用方便释放）
+        for i in func.__event_type:
+            event_bus.register(i, ref_func)
 
 
 event_bus: Final[_EventBus] = _EventBus()

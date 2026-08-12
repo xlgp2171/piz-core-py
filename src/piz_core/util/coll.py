@@ -1,10 +1,10 @@
 """ 集合（collection）处理工具
 
-:version: 0.3.260802
+:version: 0.3.260812
 """
 import random
 from dataclasses import is_dataclass, fields, InitVar
-from typing import Callable, Any, Mapping, Sequence
+from typing import Callable, Any, Mapping, Sequence, TypeVar
 
 from piz_core.constants import ErrorCode
 from piz_core.deco import validate_types
@@ -12,6 +12,7 @@ from piz_core.util.reflect import get_class_path
 from piz_core.util.valid import is_param_object
 
 
+T = TypeVar("T")
 _MISSING = object()
 """ 哨兵对象 """
 
@@ -160,6 +161,29 @@ def dict_deep_merge(value: Mapping[str, Any], override: Mapping[str, Any]) -> di
             result[key] = list(override_v)
         else:
             result[key] = override_v
+    return result
+
+@validate_types
+def sequence_merge(
+        value: Sequence[T] | None, extra: Sequence[T] | None, *, key_func: Callable[[T], Any] | None = None) -> list[T]:
+    """ 合并并可选去重（以第一次出现的顺序为主）
+
+    :param value: 目标序列
+    :param extra: 需要合并的序列
+    :param key_func: 去重函数（None: 不去重; id: 复杂类型; (lambda x:x): 简单类型）
+    """
+    result: list[T] = []
+    unique: set = set()
+
+    for seq in (value, extra):
+        if seq is None:
+            continue
+        for i in seq:
+            if key_func is not None:
+                if (k := key_func(i)) in unique:
+                    continue
+                unique.add(k)
+            result.append(i)
     return result
 
 @validate_types

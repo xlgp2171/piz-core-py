@@ -7,7 +7,7 @@ from piz_core.util.reflect import (
     get_func_name, get_class_path, method_kind, bind_arguments, iter_arguments, get_return_annotation)
 from piz_core.util.coll import (
     split_to_set, shuffle, extract_value, deep_get, get_nested, get_nested_as_dict, get_as_dict, dict_deep_merge,
-    dataclass_values)
+    sequence_merge, dataclass_values)
 from piz_core.util.crypto import to_hash, to_base64_as_string, from_base64_as_stream, from_base64_as_string
 from piz_core.util.dt import (
     current_time_millis, to_datetime, format_datetime, format_timestamp, now_as_string, add_seconds, add_minutes,
@@ -26,7 +26,7 @@ from piz_core.util.db import build_params, build_sql_and_params, map_row
 __all__ = [
     # coll
     "split_to_set", "shuffle", "extract_value", "deep_get", "get_nested", "get_nested_as_dict", "get_as_dict",
-    "dict_deep_merge", "dataclass_values",
+    "dict_deep_merge", "sequence_merge", "dataclass_values",
     # crypto
     "to_hash", "to_base64_as_string", "from_base64_as_stream", "from_base64_as_string",
     # db
