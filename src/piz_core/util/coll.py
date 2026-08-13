@@ -1,14 +1,12 @@
 """ 集合（collection）处理工具
 
-:version: 0.3.260812
+:version: 0.3.260813
 """
 import random
-from dataclasses import is_dataclass, fields, InitVar
 from typing import Callable, Any, Mapping, Sequence, TypeVar
 
 from piz_core.constants import ErrorCode
 from piz_core.deco import validate_types
-from piz_core.util.reflect import get_class_path
 from piz_core.util.valid import is_param_object
 
 
@@ -185,15 +183,3 @@ def sequence_merge(
                 unique.add(k)
             result.append(i)
     return result
-
-@validate_types
-def dataclass_values(value: Any, *, error_hint: str = "") -> tuple:
-    """ 将dataclass按顺序平铺
-
-    :param value: dataclass实例
-    :param error_hint: 非dataclass的附加消息
-    :raises TypeError: 非dataclass实例
-    """
-    if not is_dataclass(value):
-        raise TypeError(ErrorCode.P_310.format_message("dataclass", get_class_path(value), error_hint))
-    return tuple(getattr(value, f.name) for f in fields(value) if not isinstance(f.type, InitVar))

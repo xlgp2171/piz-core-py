@@ -1,6 +1,6 @@
 """ 常量
 
-:version: 0.3.260807
+:version: 0.3.260813
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -47,6 +47,11 @@ class BaseEnum(Enum):
         return f"[{self.code}]{self.message.format(*args)}"
 
     def __str__(self):
+        from piz_core.util import dump_json
+
+        return dump_json({"code": self.code, "message": self.message, "tip": self.tip})
+
+    def __repr__(self):
         return f"[{self.code}]{self.message}"
 
 

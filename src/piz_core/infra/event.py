@@ -1,6 +1,6 @@
 """ 事件监听发布组件
 
-:version: 0.3.260812
+:version: 0.3.260813
 """
 from __future__ import annotations
 
@@ -8,13 +8,12 @@ import inspect
 import logging
 import weakref
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Any, Callable, TypeVar, Final
 
 from piz_core.constants import CORE_TAG, NAMESPACE
 from piz_core.deco import validate_types
-from piz_core.util import current_time_millis, get_func_name, get_class_path
-
+from piz_core.util import current_time_millis, get_func_name, get_class_path, dump_json
 
 # 捕获返回值类型
 T = TypeVar("T")
@@ -29,7 +28,11 @@ class BaseEvent:
     timestamp: int = field(default_factory=lambda: current_time_millis(), init=False)
 
     def __str__(self):
+        return dump_json(asdict(self))
+
+    def __repr__(self):
         return f"[{self.__class__.__qualname__}]timestamp: {self.timestamp}"
+
 
 
 class _EventBus:

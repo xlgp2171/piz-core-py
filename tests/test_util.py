@@ -23,6 +23,7 @@ import piz_core.util.dt as temporal
 import piz_core.util.fs as filesystem
 import piz_core.util.prim as primitive
 import piz_core.util.reflect as reflect
+import piz_core.util.ser as serialization
 import piz_core.util.system as system
 
 from _support import Sample, DICT_DATA_A, DICT_DATA_B, _sample_func, User, Address, PlainObj, Item, MyDict, \
@@ -309,30 +310,6 @@ class TestCollection(unittest.TestCase):
             self.assertEqual(collection.sequence_merge(["a", "b"], ["b", "c"],
                                                        key_func=lambda x: x), ["a", "b", "c"])
 
-    def test_dataclass_values(self):
-        # 简单 dataclass 按字段顺序平铺
-        simple = SimpleDC(name="Alice", age=30)
-        self.assertTupleEqual(collection.dataclass_values(simple), ("Alice", 30))
-        # 含默认值的字段
-        with_default = WithDefault(a=1)
-        self.assertTupleEqual(collection.dataclass_values(with_default), (1, "default"))
-        # InitVar 字段应被过滤
-        with_init = WithInitVar(value="hello", temp="temp_val")
-        self.assertTupleEqual(collection.dataclass_values(with_init), ("hello",))
-        # 空 dataclass 返回空 tuple
-        self.assertTupleEqual(collection.dataclass_values(EmptyDC()), ())
-        # 非 dataclass 抛 TypeError，不含 error_hint
-        with self.assertRaises(TypeError) as ctx:
-            collection.dataclass_values("not a dataclass")
-        msg = str(ctx.exception)
-        self.assertIn("dataclass", msg)  # expected
-        self.assertIn("str", msg)  # got (由 get_class_path 解析)
-        # 非 dataclass 抛 TypeError，含 error_hint
-        with self.assertRaises(TypeError) as ctx2:
-            collection.dataclass_values(12345, error_hint=" [hint: must be dataclass instance]")
-        msg2 = str(ctx2.exception)
-        self.assertIn("dataclass", msg2)
-        self.assertIn("must be dataclass instance", msg2)
 
 # util/crypto工具测试
 class TestCrypto(unittest.TestCase):
@@ -1010,19 +987,6 @@ class TestFilesystemUtils(unittest.TestCase):
         # 测试 kwargs 传递（如 encoding）
         lines = list(filesystem.read_lines(multi_line_file, encoding="utf-8"))
         self.assertEqual(lines, ["line1", "line2", "line3"])
-
-    def test_read_object_and_dump_object(self):
-        # 测试 dump_object 的 data 参数和 kwargs
-        obj = {"key": "value", "num": 42}
-        pickle_file = os.path.join(self.temp_dir, "test.pkl")
-        filesystem.dump_object(pickle_file, obj, protocol=pickle.HIGHEST_PROTOCOL)
-        # 测试 read_object 的 value 参数和 kwargs
-        result = filesystem.read_object(pickle_file, encoding="ASCII")
-        self.assertEqual(result, obj)
-        # 测试复杂对象
-        complex_obj = [1, 2, {"nested": True}]
-        filesystem.dump_object(pickle_file, complex_obj)
-        self.assertEqual(filesystem.read_object(pickle_file), complex_obj)
 
     def test_path_exists(self):
         # 测试存在的文件路径
@@ -1976,6 +1940,58 @@ class TestReflect(unittest.TestCase):
         with self.assertRaises(NameError):
             reflect.get_return_annotation(bad_func, eval_str=True)
 
+
+# util/ser工具测试
+class TestSerialization(unittest.TestCase):
+    def setUp(self):
+        # 创建临时测试目录
+        path = os.path.dirname(__file__)
+        self.temp_dir = os.path.join(str(path), "test_dir")
+
+        if not os.path.exists(self.temp_dir):
+            os.mkdir(self.temp_dir)
+
+    def tearDown(self):
+        # 清理临时测试目录
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    def test_read_object_and_dump_object(self):
+        # 测试 dump_object 的 data 参数和 kwargs
+        obj = {"key": "value", "num": 42}
+        pickle_file = os.path.join(self.temp_dir, "test.pkl")
+        serialization.dump_object(pickle_file, obj, protocol=pickle.HIGHEST_PROTOCOL)
+        # 测试 read_object 的 value 参数和 kwargs
+        result = serialization.read_object(pickle_file, encoding="ASCII")
+        self.assertEqual(result, obj)
+        # 测试复杂对象
+        complex_obj = [1, 2, {"nested": True}]
+        serialization.dump_object(pickle_file, complex_obj)
+        self.assertEqual(serialization.read_object(pickle_file), complex_obj)
+
+    def test_dataclass_values(self):
+        # 简单 dataclass 按字段顺序平铺
+        simple = SimpleDC(name="Alice", age=30)
+        self.assertTupleEqual(serialization.dataclass_values(simple), ("Alice", 30))
+        # 含默认值的字段
+        with_default = WithDefault(a=1)
+        self.assertTupleEqual(serialization.dataclass_values(with_default), (1, "default"))
+        # InitVar 字段应被过滤
+        with_init = WithInitVar(value="hello", temp="temp_val")
+        self.assertTupleEqual(serialization.dataclass_values(with_init), ("hello",))
+        # 空 dataclass 返回空 tuple
+        self.assertTupleEqual(serialization.dataclass_values(EmptyDC()), ())
+        # 非 dataclass 抛 TypeError，不含 error_hint
+        with self.assertRaises(TypeError) as ctx:
+            serialization.dataclass_values("not a dataclass")
+        msg = str(ctx.exception)
+        self.assertIn("dataclass", msg)  # expected
+        self.assertIn("str", msg)  # got (由 get_class_path 解析)
+        # 非 dataclass 抛 TypeError，含 error_hint
+        with self.assertRaises(TypeError) as ctx2:
+            serialization.dataclass_values(12345, error_hint=" [hint: must be dataclass instance]")
+        msg2 = str(ctx2.exception)
+        self.assertIn("dataclass", msg2)
+        self.assertIn("must be dataclass instance", msg2)
 
 # util/system工具测试
 class TestSystem(unittest.TestCase):

@@ -1,14 +1,13 @@
 """ 文件系统（filesystem）处理工具
 
-:version: 0.2.260720
+:version: 0.3.260813
 """
 import os
-import pickle
 import sys
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Generator
+from typing import Callable, Generator
 
 from piz_core.deco import validate_types
 from piz_core.util.prim import default_string
@@ -36,37 +35,27 @@ def read_bytes(value: str | Path) -> bytes:
         return rf.read()
 
 @validate_types
-def read_lines(value: str | Path, strip: bool = True, **kwargs) -> Generator:
+def read_text(value: str | Path, encoding: str | None = None, errors: str | None = None) -> str:
+    """ 读取文件内容并返回字符串
+
+    :param value: 文件路径
+    :param encoding: 文件编码格式，默认使用系统编码
+    :param errors: 同open的errors参数
+    """
+    return Path(value).read_text(encoding=encoding or sys.getdefaultencoding(), errors=errors)
+
+@validate_types
+def read_lines(value: str | Path, strip: bool = True, encoding: str | None = None, **kwargs) -> Generator:
     """ 逐行读取文件内容，返回生成器
 
     :param value: 文件路径
     :param strip: 是否去除每行首尾的空白字符，默认为 True
+    :param encoding: 文件编码格式，默认使用系统编码
     :param kwargs: 传递给 get_resource_as_stream 的额外参数
     """
-    with get_resource_as_stream(value, mode='r', **kwargs) as rf:
+    with get_resource_as_stream(value, mode='r', encoding=encoding or sys.getdefaultencoding(), **kwargs) as rf:
         for i in rf.readlines():
             yield default_string(i, strip)
-
-@validate_types
-def read_object(value: str | Path, **kwargs) -> Any:
-    """ 从文件中读取 pickle 序列化的对象
-
-    :param value: 文件路径
-    :param kwargs: 传递给 pickle.load 的额外参数
-    """
-    with get_resource_as_stream(value, mode='rb') as rf:
-        return pickle.load(rf, **kwargs)
-
-@validate_types
-def dump_object(value: str | Path, data: Any, **kwargs):
-    """ 将 Python 对象通过 pickle 序列化后写入文件
-
-    :param value: 目标文件路径
-    :param data: 待序列化的 Python 对象
-    :param kwargs: 传递给 pickle.dump 的额外参数
-    """
-    with get_resource_as_stream(value, mode='wb') as wf:
-        pickle.dump(data, wf, **kwargs)
 
 @validate_types
 def path_exists(value: str | Path) -> bool:
