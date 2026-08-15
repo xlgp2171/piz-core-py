@@ -1,6 +1,6 @@
 """ 系统（system）处理工具
 
-:version: 0.2.260730
+:version: 0.3.260814
 """
 import inspect
 from typing import Callable, ParamSpec, TypeVar, Any, Iterator
@@ -14,20 +14,42 @@ P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def get_func_name(func: Callable | None) -> str:
+def get_func_path(func: Callable | None) -> str:
     """ 安全获取函数的完整限定名
-    """
-    if not func:
-        return "unknown"
-    if hasattr(func, '__qualname__'):
-        return func.__qualname__
-    elif hasattr(func, '__name__'):
-        return func.__name__
-    elif hasattr(func, '__class__'):
-        return f"{func.__class__.__name__}.__call__"
-    return repr(func)
 
-@validate_types
+    - 类方法/静态方法/实例方法: 模块名.类名.方法名
+    - 模块级裸函数: 模块名.函数名
+    - 可调用对象实例: 模块名.类名.__call__
+    """
+    if func is None:
+        return "unknown"
+    # 标准函数/方法：__module__.__qualname__
+    module = getattr(func, "__module__", None)
+    # 直接输出模块.类.方法
+    if qualname := getattr(func, "__qualname__", None):
+        return f"{module}.{qualname}" if module else str(qualname)
+    # 无__qualname__时（如partial或某些C扩展）
+    elif name := getattr(func, "__name__", None):
+        return f"{module}.{name}" if module else str(name)
+    # 所有剩余callable（类对象 或 可调用实例）
+    elif callable(func):
+        # 类对象
+        if isinstance(func, type):
+            cls_name = getattr(func, "__name__", None) or getattr(func, "__qualname__", None)
+
+            if (cls_module := getattr(func, "__module__", None)) and cls_name:
+                return f"{cls_module}.{cls_name}"
+        # 可调用对象实例
+        else:
+            # 可调用对象实例（实现了 __call__）
+            cls_name = getattr(cls := type(func), "__qualname__", None) or getattr(cls, "__name__", None)
+
+            if cls_name:
+                prefix = f"{cls_module}.{cls_name}" if (cls_module := getattr(cls, "__module__", None)) else cls_name
+                return f"{prefix}.__call__"
+    # 未知对象
+    return f"<unresolvable:{type(func).__name__}:{id(func)}>"
+
 def get_class_path(value: object | type) -> str:
     """ 获取类型路径名称
     """
