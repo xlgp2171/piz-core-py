@@ -5,7 +5,7 @@
 import random
 from typing import Callable, Any, Mapping, Sequence, TypeVar
 
-from piz_core.constants import ErrorCode
+from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 from piz_core.util.valid import is_param_object
 

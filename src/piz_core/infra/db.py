@@ -1,6 +1,6 @@
 """ Sqlite3组件
 
-:version: 0.3.260807
+:version: 0.3.260814
 """
 from __future__ import annotations
 
@@ -13,10 +13,11 @@ from enum import Enum, auto
 from functools import wraps
 from typing import Any, Callable, ParamSpec, TypeVar, Protocol, Generic, ContextManager, Self
 
-from piz_core.constants import CORE_TAG, ErrorCode
+from piz_core.const import CORE_TAG, ErrorCode, SysTag
+from piz_core.infra.logger import LogPayload
 from piz_core.infra.ioc import Injected
 from piz_core.util import bind_arguments, map_row, build_sql_and_params, method_unavailable_exception, LazyMessage, \
-    get_func_name, get_class_path
+    get_func_path, get_class_path
 
 
 # 捕获任意参数签名
@@ -64,13 +65,15 @@ class Database(Protocol):
 class Executor(Generic[D, S], ABC):
     """ 数据处理基类
     """
-    def __init__(self, db: D, stmt: S):
+    def __init__(self, db: D, stmt: S, *, hint: str = ""):
         """
         :param db: 继承Database的数据库操作类
         :param stmt: 继承Statement的语句结构体
+        :param hint: 提示的附加消息
         """
         self._db: D = db
         self._stmt: S = stmt
+        self._hint = hint
         # 验证是否能正确使用
         self.validate()
 
@@ -105,11 +108,11 @@ class MapperMeta(type):
                     # 缓存语句处理，方便直接获取
                     cls._statements[member_name] = stmt
                     setattr(cls, member_name, mcs._build_executor(member, stmt))
-                    logger.debug(LazyMessage(lambda: f"{CORE_TAG}Build executor,\t\n\tclass: {cls.__module__}."
-                                                     f"{cls.__qualname__},\t\n\tfunc: {get_func_name(member)}"))
+                    logger.debug(LazyMessage(lambda: LogPayload.encode(SysTag.SYSTEM,
+                        f"{CORE_TAG}Wrapping method with executor,\t\n\tfunc: {get_func_path(member)}")))
                 else:
-                    logger.warning(f"{CORE_TAG}Statement invalid,"
-                                   f"\tclass: {name},\tattr: {member_name},\tmember: {type(member)}")
+                    logger.warning(LogPayload.encode(SysTag.WARN,
+                        f"{CORE_TAG}Statement invalid,\tfunc: {get_func_path(member)},\tattr: {member_name}"))
         return cls
 
     @classmethod
@@ -135,7 +138,7 @@ class MapperMeta(type):
             # 若stmt是SqlStatement
             if isinstance(stmt, Statement):
                 # 执行操作
-                return stmt.executor(self._impl, stmt).execute(arguments)
+                return stmt.executor(self._impl, stmt, hint=f",\tfunc: {get_func_path(func)}").execute(arguments)
             else:
                 # 没有匹配的类型
                 raise TypeError(ErrorCode.P_310.format_message(
@@ -201,18 +204,19 @@ class SqlExecutor(Executor[SqlDatabase, SqlStatement]):
         if not isinstance(self._db, SqlDatabase):
             # 类型不匹配
             raise TypeError(ErrorCode.S_231.format_message(
-                get_class_path(SqlDatabase), get_class_path(self._db)))
+                get_class_path(SqlDatabase), get_class_path(self._db), self._hint))
 
     def execute(self, arguments: dict[str, Any]) -> Any:
         """ 根据参数字典执行DB接口
 
-        :raises TypeError: 类型不支持; 没有匹配的操作枚举; 查询操作不支持类型
+        :raises TypeError: 类型不支持; 没有匹配的操作枚举; 查询操作不支持类型; 构造函数不匹配
         :raises ValueError: 批量值长度不一致; 字段值获取异常; 参数值为空集合; 行数据为空; 不支持集合嵌套
         """
         # 构建sql和参数
-        sql, params = build_sql_and_params(self._stmt.sql, arguments)
-        logger.debug(LazyMessage(lambda: f"{CORE_TAG}Execute statement,\t\n\top: {self._stmt.op},\t"
-                                         f"\n\tmany: {self._stmt.many},\t\n\tsql: {sql},\t\n\tparams: {repr(params)}"))
+        sql, params = build_sql_and_params(self._stmt.sql, arguments, error_hint=self._hint)
+        logger.debug(LazyMessage(lambda: LogPayload.encode(
+            SysTag.SYSTEM, f"{CORE_TAG}Executing proxied method{self._hint},\t\n\top: {self._stmt.op},\t"
+                           f"\n\tmany: {self._stmt.many},\t\n\tsql: {sql},\t\n\tparams: {repr(params)}")))
         # 匹配操作类型执行DB接口
         match self._stmt.op:
             case DbOp.SELECT:
@@ -220,25 +224,23 @@ class SqlExecutor(Executor[SqlDatabase, SqlStatement]):
                 if not isinstance(params, tuple):
                     # 查询操作不支持类型
                     raise TypeError(ErrorCode.P_310.format_message(
-                        get_class_path(tuple), get_class_path(params), f",\top: {DbOp.SELECT},\t"
-                                                                f"class: {get_class_path(SqlExecutor)}"))
+                        get_class_path(tuple), get_class_path(params), f",\top: {DbOp.SELECT}{self._hint}"))
                 # 根据返回数据量设置映射数据
                 if self._stmt.many:
                     # 集合数据查询
                     result = self._db.query_many(sql, params)
-                    return [map_row(i, self._stmt.res_type) for i in result]
+                    return [map_row(i, self._stmt.res_type, error_hint=self._hint) for i in result]
                 else:
                     # 单个数据查询返回简单数据
                     if self._stmt.res_type in (int, float, str, bool, datetime):
                         return self._db.query_value(sql, params)
                     # 单个数据查询返回结构体
                     result = self._db.query_one(sql, params)
-                    return map_row(result, self._stmt.res_type)
+                    return map_row(result, self._stmt.res_type, error_hint=self._hint) if result else None
             case DbOp.INSERT | DbOp.UPDATE | DbOp.DELETE:
                 # 通过参数判断是集合处理还是单个处理并返回影响行数
                 return self._db.execute_many(
                     sql, params) if isinstance(params, list) else self._db.execute(sql, params)
             case _:
                 # 没有匹配的操作枚举
-                raise TypeError(ErrorCode.P_321.format_message(
-                    self._stmt.op, get_class_path(DbOp), f",\tclass: {get_class_path(SqlExecutor)}"))
+                raise TypeError(ErrorCode.P_321.format_message(self._stmt.op, get_class_path(DbOp), self._hint))

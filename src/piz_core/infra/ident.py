@@ -1,6 +1,6 @@
 """ 标识组件
 
-:version: 0.2.260726
+:version: 0.2.260814
 """
 from __future__ import annotations
 
@@ -11,10 +11,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Annotated
 
-from piz_core.constants import ErrorCode
+from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
-from piz_core.settings import Settings
-from piz_core.util import Range
+from piz_core.setting import Settings
+from piz_core.util import Range, get_class_path
 
 
 # 2018-01-01 00:00:00
@@ -70,16 +70,20 @@ class Identity:
         """
         if self.custom >> _BW_CUSTOM:
             # 位宽不正确
-            raise ValueError(ErrorCode.P_431.format_message("custom", _BW_CUSTOM))
+            raise ValueError(ErrorCode.P_431.format_message(
+                "custom", _BW_CUSTOM, f",\tfunc: {get_class_path(self)}"))
         elif self.sequence >> _BW_SEQUENCE:
             # 位宽不正确
-            raise ValueError(ErrorCode.P_431.format_message("sequence", _BW_SEQUENCE))
+            raise ValueError(ErrorCode.P_431.format_message(
+                "sequence", _BW_SEQUENCE, f",\tfunc: {get_class_path(self)}"))
         elif self.timestamp >> _BW_TIMESTAMP:
             # 位宽不正确
-            raise ValueError(ErrorCode.P_431.format_message("timestamp", _BW_TIMESTAMP))
+            raise ValueError(ErrorCode.P_431.format_message(
+                "timestamp", _BW_TIMESTAMP, f",\tfunc: {get_class_path(self)}"))
         elif self.version >> _BW_VERSION:
             # 位宽不正确
-            raise ValueError(ErrorCode.P_431.format_message("version", _BW_VERSION))
+            raise ValueError(ErrorCode.P_431.format_message(
+                "version", _BW_VERSION, f",\tfunc: {get_class_path(self)}"))
 
     @property
     def real_timestamp(self) -> int:
@@ -111,10 +115,12 @@ class IdFactory:
         """
         if custom >> _BW_CUSTOM:
             # 位宽不正确
-            raise ValueError(ErrorCode.P_431.format_message("custom", _BW_CUSTOM))
+            raise ValueError(ErrorCode.P_431.format_message(
+                "custom", _BW_CUSTOM, f",\tfunc: {get_class_path(self)}"))
         if version >> _BW_VERSION:
             # 位宽不正确
-            raise ValueError(ErrorCode.P_431.format_message("version", _BW_VERSION))
+            raise ValueError(ErrorCode.P_431.format_message(
+                "version", _BW_VERSION, f",\tfunc: {get_class_path(self)}"))
         self._lock = threading.Lock()
         # 最后时间戳
         self._last_timestamp = -1

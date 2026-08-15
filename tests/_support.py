@@ -6,13 +6,15 @@ from typing import Annotated, Any
 from piz_core import util
 from piz_core.deco import inject, provide, component, validate_types, insert, select, update, delete
 from piz_core.deco.event import event_listener
-from piz_core.infra import setup_logging, LOG_VERBOSE_FORMAT
+from piz_core.infra import setup_logging, LOG_VERBOSE_FORMAT, LogMode
 from piz_core.infra.db import BaseMapper, SqlDatabase
 from piz_core.infra.event import BaseEvent, event_bus
 from piz_core.infra.ioc import Injected, Prop, environment
+from piz_core.setting import Settings
 
-
-setup_logging("debug", logging.DEBUG, log_format=LOG_VERBOSE_FORMAT)
+# Settings.log_mode = LogMode.RECORD | LogMode.PUBLISH
+setup_logging("debug", logging.DEBUG,
+              log_format=LOG_VERBOSE_FORMAT, publish_func=lambda t, n, m: print(f"{t.code} - {n} - {m}"))
 environment.set_default_path("sample/config_main.toml")
 
 
@@ -338,7 +340,7 @@ class NoMatchParams:
         self.a = a
         self.b = b
 
-class Minimal:
+class NotCallable:
     pass
 
 class CallableObj:

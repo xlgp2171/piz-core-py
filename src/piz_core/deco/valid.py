@@ -1,11 +1,11 @@
 """ 验证装饰器
 
-:version: 0.2.260723
+:version: 0.2.260814
 """
 from functools import wraps
 from typing import ParamSpec, TypeVar, Callable, Any
 
-from piz_core.settings import Settings
+from piz_core.setting import Settings
 
 
 # 捕获任意参数签名
@@ -28,14 +28,14 @@ def validate_types(target_func: Callable[P, T] | None = None, /, *, strict: bool
         def _wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
             # 全局开关
             if Settings.validate_types_enabled:
-                from piz_core.util import iter_arguments, validate_type, validate_constraint, get_func_name
+                from piz_core.util import iter_arguments, validate_type, validate_constraint, get_func_path
                 # 处理每个参数
                 for _name, annotation, _value, arguments in iter_arguments(func, *args, **kwargs):
                     # 验证参数和类型
                     validate_type(
-                        _value, annotation, error_hint=f",\targs: {_name},\tfunc: {get_func_name(func)}", strict=strict)
+                        _value, annotation, error_hint=f",\tfunc: {get_func_path(func)},\targs: {_name}", strict=strict)
                     # 验证取值范围（针对Annotated类型）
-                    validate_constraint(annotation, _name, arguments, error_hint=f",\tfunc: {get_func_name(func)}")
+                    validate_constraint(annotation, _name, arguments, error_hint=f",\tfunc: {get_func_path(func)}")
             return func(*args, **kwargs)
         return _wrapper
     # 如果target_func不是None，说明是直接使用无参装饰器

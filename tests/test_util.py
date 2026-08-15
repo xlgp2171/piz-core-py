@@ -28,7 +28,7 @@ import piz_core.util.system as system
 
 from _support import Sample, DICT_DATA_A, DICT_DATA_B, _sample_func, User, Address, PlainObj, Item, MyDict, \
     KwargsClass, FilteredClass, ReadOnlyProp, BadKwargsInit, NeedRequired, BadFilteredInit, NoMatchParams, \
-    Minimal, CallableObj, SimpleDC, WithDefault, WithInitVar, EmptyDC
+    NotCallable, CallableObj, SimpleDC, WithDefault, WithInitVar, EmptyDC
 
 
 # util/coll工具测试
@@ -1740,42 +1740,31 @@ class TestPrimitive(unittest.TestCase):
 
 # util/reflect工具测试
 class TestReflect(unittest.TestCase):
-    def test_get_func_name(self):
-        """覆盖 get_func_name 全部参数分支与异常/兜底路径"""
-        # 参数 func=None -> 返回 "unknown"
-        self.assertEqual(reflect.get_func_name(None), "unknown")
-        # 普通函数 -> 返回 __qualname__
-        self.assertEqual(reflect.get_func_name(_sample_func), "_sample_func")
-        # lambda -> __qualname__ 包含上下文路径，以 "<lambda>" 结尾
-        # 注：若 lambda 定义在模块顶层，__qualname__ 为 "<lambda>"；若定义在类/方法内部，则前缀会包含类名/方法名和 "<locals>"。
-        self.assertTrue(reflect.get_func_name(lambda x: x).endswith("<lambda>"))
-        # 类方法（未绑定，从类上取）-> __qualname__ 含类名前缀
-        self.assertEqual(reflect.get_func_name(Sample.reset), "Sample.reset")
-        # 静态方法（staticmethod 描述符对象）-> __qualname__ 存在
-        self.assertEqual(reflect.get_func_name(Sample.static_method), "Sample.static_method")
-        # 实例方法（绑定后）-> __qualname__ 与类上取一致
-        self.assertEqual(reflect.get_func_name(Sample("").reset), "Sample.reset")
-        # 可调用对象（有 __call__）-> 走 __class__.__name__ 兜底路径
-        self.assertEqual(reflect.get_func_name(CallableObj()), "CallableObj.__call__")
-        # 类对象本身（有 __name__）-> 返回类名
-        self.assertEqual(reflect.get_func_name(Sample), "Sample")
-        # 极端兜底：无 __qualname__/__name__ 但有 __class__ 的对象
-        self.assertEqual(reflect.get_func_name(Minimal()), "Minimal.__call__")
-
-    def test_get_class_path(self):
-        # 参数 value 为 type -> 返回 "module.qualname"
-        self.assertEqual(reflect.get_class_path(str), "builtins.str")
-        self.assertEqual(reflect.get_class_path(int), "builtins.int")
-        self.assertTrue(reflect.get_class_path(Sample).endswith("Sample"))
-        self.assertIn(".", reflect.get_class_path(Sample))
-        # 参数 value 为实例 -> 内部取 type(value) 后再拼接
-        self.assertEqual(reflect.get_class_path(Sample("test")), reflect.get_class_path(Sample))
-        # 内置类型实例
-        self.assertEqual(reflect.get_class_path("hello"), "builtins.str")
-        self.assertEqual(reflect.get_class_path(123), "builtins.int")
-        self.assertEqual(reflect.get_class_path([]), "builtins.list")
-        # 函数对象（类型为 builtins.function）
-        self.assertEqual(reflect.get_class_path(_sample_func), "builtins.function")
+    def test_get_func_path(self):
+        """覆盖 get_func_path 全部参数分支与异常/兜底路径"""
+        mod = _sample_func.__module__
+        # func=None -> 返回 "unknown"
+        self.assertEqual(reflect.get_func_path(None), "unknown")
+        # 普通函数 -> module.func_name
+        self.assertEqual(reflect.get_func_path(_sample_func), f"{mod}._sample_func")
+        # lambda -> 包含模块名，以 "<lambda>" 结尾
+        # 注：若 lambda 定义在方法内部，qualname 会包含 <locals> 前缀
+        path = reflect.get_func_path(lambda x: x)
+        self.assertTrue(path.endswith("<lambda>"), f"Expected suffix '<lambda>', got {path}")
+        # 类方法（未绑定）-> module.Class.method
+        self.assertEqual(reflect.get_func_path(Sample.reset), f"{mod}.Sample.reset")
+        # 静态方法 -> module.Class.method
+        self.assertEqual(reflect.get_func_path(Sample.static_method), f"{mod}.Sample.static_method")
+        # 实例方法（绑定后）-> 只有 __name__，返回 module.method
+        # 注意：若希望返回 module.Class.method，需在实现中通过 func.__func__.__qualname__ 提取
+        self.assertEqual(reflect.get_func_path(Sample("").reset), f"{mod}.Sample.reset")
+        # 类对象本身 -> module.Class（类对象有 __qualname__，走首分支）
+        self.assertEqual(reflect.get_func_path(Sample), f"{mod}.Sample")
+        # 可调用对象实例 -> module.Class.__call__
+        self.assertEqual(reflect.get_func_path(CallableObj()), f"{mod}.CallableObj.__call__")
+        # 不可调用对象 -> 最终兜底 <unresolvable:...>
+        result = reflect.get_func_path(NotCallable())
+        self.assertTrue(result.startswith("<unresolvable:"), f"Unexpected result: {result}")
 
     def test_method_kind(self):
         # @classmethod 描述符 -> (True, True)

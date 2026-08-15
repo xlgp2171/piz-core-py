@@ -12,8 +12,9 @@ from enum import IntFlag
 from logging.handlers import RotatingFileHandler
 from typing import Callable, Final, Annotated, cast
 
-from piz_core.constants import SysTag, namespaced
+from piz_core.const import SysTag, namespaced
 from piz_core.deco import validate_types
+from piz_core.setting import Settings
 from piz_core.util import to_int, DATETIME_PATTERN, NonNegative, now_as_string, real_path, EMPTY, is_blank, make_dirs
 
 
@@ -81,15 +82,16 @@ class LogPayload:
 
     @staticmethod
     @validate_types
-    def encode(tag: SysTag, message: str, name: str = "", mode: LogMode = LogMode.RECORD) -> str:
+    def encode(tag: SysTag, message: str, name: str = "", mode: LogMode | None = None) -> str:
         """ 载荷编码
 
         :param tag: 系统标签
         :param message: 日志消息
         :param name: 消息名称（默认""）
         :param mode: 日志记录模式（默认记录）
-        :return:
         """
+        if mode is None:
+            mode = Settings.log_mode
         return json.dumps({
             LogPayload.KEY_MODE: mode,
             LogPayload.KEY_TAG: tag.code,

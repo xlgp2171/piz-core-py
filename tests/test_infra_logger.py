@@ -3,7 +3,7 @@ import logging
 import unittest
 from unittest.mock import patch, MagicMock
 
-from piz_core.constants import SysTag
+from piz_core.const import SysTag
 from piz_core.infra.logger import LogPayload, LogMode, setup_logging
 
 
@@ -113,6 +113,7 @@ class TestLogger(unittest.TestCase):
         setup_logging("info", publish_func=lambda t,n,m: print(f"{t.code} - {n} - {m}"))
         logger = logging.getLogger(__name__)
         logger.error(LogPayload.encode(SysTag.BUSINESS, "载荷异常日志", "ERROR_TEST"), exc_info=True)
-        logger.info(LogPayload.encode(SysTag.OUTPUT, "发布的消息", "PUBLISHED", LogMode.PUBLISH))
+        logger.info(LogPayload.encode(
+            SysTag.OUTPUT, "发布的消息", "PUBLISHED", LogMode.PUBLISH | LogMode.RECORD))
         logger.debug("DEBUG_调试信息")
         logger.info("INFO_TEST_标准日志")

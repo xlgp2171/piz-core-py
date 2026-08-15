@@ -1,6 +1,6 @@
 """ 事件监听发布组件
 
-:version: 0.3.260813
+:version: 0.3.260814
 """
 from __future__ import annotations
 
@@ -11,9 +11,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field, asdict
 from typing import Any, Callable, TypeVar, Final
 
-from piz_core.constants import CORE_TAG, NAMESPACE
+from piz_core.const import CORE_TAG, NAMESPACE, SysTag
 from piz_core.deco import validate_types
-from piz_core.util import current_time_millis, get_func_name, get_class_path, dump_json
+from piz_core.infra.logger import LogPayload
+from piz_core.util import current_time_millis, get_func_path, get_class_path, dump_json
 
 # 捕获返回值类型
 T = TypeVar("T")
@@ -31,7 +32,7 @@ class BaseEvent:
         return dump_json(asdict(self))
 
     def __repr__(self):
-        return f"[{self.__class__.__qualname__}]timestamp: {self.timestamp}"
+        return f"[{get_class_path(self)}]timestamp: {self.timestamp}"
 
 
 
@@ -51,8 +52,9 @@ class _EventBus:
         if ref_listener_func not in self._listeners[event_type]:
             self._listeners[event_type].append(ref_listener_func)
             listener_func = ref_listener_func()
-            logger.info(f"{CORE_TAG}Registered listener,\tevent: {get_class_path(event_type)},"
-                        f"\tlistener: {get_func_name(listener_func)}")
+            logger.info(LogPayload.encode(
+                SysTag.SYSTEM, f"{CORE_TAG}Registered listener,\tevent: {get_class_path(event_type)},\t"
+                               f"func: {get_func_path(listener_func)}"))
 
     @validate_types
     def unregister(self, event_type: type[T], listener_func: Callable[[T], Any]):
@@ -66,8 +68,8 @@ class _EventBus:
                 # 对弱引用的处理
                 if (func := ref()) is not None and func == listener_func:
                     listeners.remove(ref)
-                    logger.info(f"{CORE_TAG}Unregistered listener,"
-                                f"\tevent: {get_class_path(event_type)},\tlistener: {get_func_name(listener_func)}")
+                    logger.info(LogPayload.encode(SysTag.SYSTEM,f"{CORE_TAG}Unregistered listener,"
+                                f"\tevent: {get_class_path(event_type)},\tfunc: {get_func_path(listener_func)}"))
                     break
             # 尝试清空类型键
             if not listeners:
@@ -90,8 +92,9 @@ class _EventBus:
                     try:
                         func(event)
                     except Exception:
-                        logger.error(f"Error in listener,\tevent: {get_class_path(event_type)},"
-                                     f"\tfunc: {get_func_name(func)}", exc_info=True)
+                        logger.error(LogPayload.encode(
+                            SysTag.ERROR, f"Error in listener,\tevent: {get_class_path(event_type)},\t"
+                                          f"func: {get_func_path(func)}"), exc_info=True)
                 # 清理死引用，否则会越积越多
                 for ref in removed:
                     listeners.remove(ref)
@@ -108,7 +111,7 @@ def register_hook(instance: Any, member_name: str, member: Any):
 
     :param instance: 实例
     :param member_name: 成员名称
-    :param member: 实例成员
+    :param member: 实例成员（和getattr(instance, member_name)有区别）
     """
     # 若为@event_listener标记则将方法注册
     if getattr(member, "__event_listener", None) == NAMESPACE:

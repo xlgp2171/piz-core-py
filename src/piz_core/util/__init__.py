@@ -4,7 +4,7 @@ from piz_core.util.valid import (
 from piz_core.util.system import (
     get_caller_info, get_caller_frame, method_unavailable_exception, LazyMessage)
 from piz_core.util.reflect import (
-    get_func_name, get_class_path, method_kind, bind_arguments, iter_arguments, get_return_annotation)
+    get_func_path, get_class_path, method_kind, bind_arguments, iter_arguments, get_return_annotation)
 from piz_core.util.coll import (
     split_to_set, shuffle, extract_value, deep_get, get_nested, get_nested_as_dict, get_as_dict, dict_deep_merge,
     sequence_merge)
@@ -48,7 +48,7 @@ __all__ = [
     "default_float", "to_int", "to_float", "randrange_step", "round_standard", "to_plain_string", "to_boolean",
     "EMPTY", "ZERO", "ONE",
     # reflect
-    "get_func_name", "get_class_path", "method_kind", "bind_arguments", "iter_arguments", "get_return_annotation",
+    "get_func_path", "get_class_path", "method_kind", "bind_arguments", "iter_arguments", "get_return_annotation",
     # ser
     "read_object", "dump_object", "dump_json", "dataclass_values",
     "JsonEncoder",

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from piz_core.constants import ErrorCode
+from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 from piz_core.util.dt import format_datetime
 from piz_core.util.fs import get_resource_as_stream

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
-from piz_core.constants import ErrorCode
+from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 
 

@@ -1,12 +1,12 @@
 """ 依赖注入装饰器
 
-:version: 0.3.260812
+:version: 0.3.260814
 """
 import inspect
 from functools import wraps
 from typing import TypeVar, ParamSpec, Callable, get_args, Any, Sequence
 
-from piz_core.constants import NAMESPACE, ErrorCode
+from piz_core.const import NAMESPACE, ErrorCode
 from piz_core.infra.event import register_hook
 from piz_core.infra.ioc import Qualifier, container, Prop, trigger_hooks, inject_hook
 
@@ -43,9 +43,9 @@ def inject(target_func: Callable[P, T]) -> Callable[P, T]:
                 qualifier = next((i for i in metadata if isinstance(i, Qualifier)), None)
                 # 若都未配置，则异常
                 if prop is None and qualifier is None:
-                    from piz_core.util import get_func_name
+                    from piz_core.util import get_func_path
                     # 注解缺失
-                    raise ValueError(ErrorCode.P_211.format_message(get_func_name(target_func), _name))
+                    raise ValueError(ErrorCode.P_211.format_message(get_func_path(target_func), _name))
                 # 优先获取配置中的值
                 instance_name = str(prop.get_value()) if prop is not None else qualifier.name
                 # 按照实际类型和指定名称进行匹配
@@ -53,9 +53,9 @@ def inject(target_func: Callable[P, T]) -> Callable[P, T]:
                     continue
                 # 命中后再校验类型（real_type 可能是泛型别名）
                 if isinstance(real_type, type) and not isinstance(instance, real_type):
-                    from piz_core.util import get_class_path, get_func_name
+                    from piz_core.util import get_class_path, get_func_path
                     # 类型不匹配
-                    error_hint = f",\targs: {_name},\tfunc: {get_func_name(target_func)}"
+                    error_hint = f",\tfunc: {get_func_path(target_func)},\targs: {_name}"
                     raise TypeError(ErrorCode.P_310.format_message(
                         get_class_path(real_type), get_class_path(instance), error_hint))
             else:
@@ -126,7 +126,7 @@ def provide(target_func: Callable | None = None, /, *, name: str | None = None, 
     - 用法4：@provide(hook_funcs=[func]) # 用于初始化钩子函数注册
 
     :param target_func: 被装饰的工厂函数（@provide 无参形式时自动传入）
-    :param name: 注册到容器的实例名称，默认取get_func_name()方法返回值
+    :param name: 注册到容器的实例名称（默认为小写的func.__name__返回值）
     :param eager: 是否在装饰时立即执行工厂函数完成注册，False为调用时（默认 True）
     :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
     :raises ValueError: 实例函数无效
@@ -140,9 +140,8 @@ def provide(target_func: Callable | None = None, /, *, name: str | None = None, 
                 # 根据实例自动注入
                 _assemble(instance := func(*args, **kwargs), hook_funcs)
                 return instance
-            from piz_core.util import get_func_name
             # 首次调用：执行工厂函数并注册（ensure 内部对 None 返回值会抛 ValueError）
-            return container.ensure(name if name else get_func_name(func), _new_instance)
+            return container.ensure(name if name else str(func.__name__).lower(), _new_instance)
         # 饿汉式：装饰时立即完成注册
         if eager:
             _wrapper()

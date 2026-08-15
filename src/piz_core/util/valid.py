@@ -1,6 +1,6 @@
 """ 验证（validate）处理工具
 
-:version: 0.2.260802
+:version: 0.2.260814
 """
 import inspect
 from abc import ABC, abstractmethod
@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, is_dataclass
 from types import UnionType
 from typing import Any, get_origin, Union, get_args, Literal, Annotated, Mapping, TypeVar, Sequence
 
-from piz_core.constants import ErrorCode
+from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 
 
@@ -38,7 +38,7 @@ class BaseConstraint(ABC):
         :raises TypeError: 参数类型不是int或float异常
         :raises ValueError: 参数未找到异常
         """
-        from piz_core.constants import ErrorCode
+        from piz_core.const import ErrorCode
 
         if name in args_dict:
             value = args_dict[name]
@@ -109,7 +109,7 @@ class GreaterThanArgs(BaseConstraint):
         """
         value = self._require_number(args_dict, name, error_hint=error_hint)
         args_value = self._require_number(args_dict, self.args, error_hint=error_hint)
-        validate_range(value, error_hint=f",\targs: {name}; {self.args}{error_hint}", min_value=args_value,
+        validate_range(value, error_hint=f"{error_hint},\targs: {name}; {self.args}", min_value=args_value,
                        min_inclusive=self.min_inclusive)
 
 
@@ -132,7 +132,7 @@ class GreaterThanValue(BaseConstraint):
         :raises TypeError: 参数类型不是int或float异常
         """
         value = self._require_number(args_dict, name, error_hint=error_hint)
-        validate_range(value, error_hint=f",\targs: {name}{error_hint}", min_value=self.value,
+        validate_range(value, error_hint=f"{error_hint},\targs: {name}", min_value=self.value,
                        min_inclusive=self.min_inclusive)
 
 
@@ -156,7 +156,7 @@ class LessThanArgs(BaseConstraint):
         """
         value = self._require_number(args_dict, name, error_hint=error_hint)
         args_value = self._require_number(args_dict, self.args)
-        validate_range(value, error_hint=f"args: {name}; {self.args}{error_hint}", max_value=args_value,
+        validate_range(value, error_hint=f"{error_hint},\targs: {name}; {self.args}", max_value=args_value,
                        max_inclusive=self.max_inclusive)
 
 
@@ -179,7 +179,7 @@ class LessThanValue(BaseConstraint):
         :raises TypeError: 参数类型不是int或float异常
         """
         value = self._require_number(args_dict, name, error_hint=error_hint)
-        validate_range(value, error_hint=f",\targs: {name}{error_hint}", max_value=self.value,
+        validate_range(value, error_hint=f"{error_hint},\targs: {name}", max_value=self.value,
                        max_inclusive=self.max_inclusive)
 
 @validate_types

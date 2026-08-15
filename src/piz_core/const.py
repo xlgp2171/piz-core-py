@@ -1,6 +1,6 @@
 """ 常量
 
-:version: 0.3.260813
+:version: 0.3.260815
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -89,13 +89,11 @@ class ErrorCode(BaseEnum):
     # System（系统级、服务级、内部组件、运行时异常）
     S_000 = ("S000", "System unknown error", "系统未知异常")
     S_200 = ("S200", "Internal runtime error", "内部运行时错误")
-    S_210 = ("S210", "Sequence allocation error", "序列分配错误")
-    S_211 = ("S211", "Sequence exhausted wait timeout,\tdeadline: {0}ms", "序列耗尽等待超时，截止时间: {0}ms")
     S_220 = ("S220", "Illegal state", "非法状态")
     S_221 = ("S221", "Task already started,\ttask: {0}", "已启动，任务{0}")
     S_222 = ("S222", "Task Not started", "未启动")
     S_230 = ("S230", "Type assertion failed", "类型断言失败")
-    S_231 = ("S231", "Impl type mismatch,\texpected: {0},\tgot: {1}", "实现类型不匹配，期望{0}实际{1}")
+    S_231 = ("S231", "Impl type mismatch,\texpected: {0},\tgot: {1}{2}", "实现类型不匹配，期望{0}实际{1}")
 
     # Parameter（请求参数、报文、接口契约、输入校验）
     P_000 = ("P000", "Parameter unknown error", "参数未知异常")
@@ -104,7 +102,7 @@ class ErrorCode(BaseEnum):
     P_102 = ("P102", "Event types empty{1}", "事件类型为空")
     P_103 = ("P103", "Nested field access failed,\targs: {0}{1}", "嵌套字段访问失败，路径: {0}")
     P_104 = ("P104", "Collection argument empty,\targs: {0}{1}", "集合参数为空，参数: {0}")
-    P_105 = ("P105", "Required constructor argument missing,\ttype: {0},\texpected: {1},\tgot: {2}",
+    P_105 = ("P105", "Required constructor argument missing,\ttype: {0},\texpected: {1},\tgot: {2}{3}",
              "构造函数缺少必要参数，类型{0}预期{1}实际{2}")
     P_110 = ("P110", "Factory function invalid", "工厂函数无效")
     P_111 = ("P111", "instance function invalid,\tinstance name: {0}", "实例{0}的实例函数无效")
@@ -128,7 +126,7 @@ class ErrorCode(BaseEnum):
     P_421 = ("P421", "Value above maximum,\tvalue: {0},\tmax: {1}{2}", "值{0}高于最大值{1}")
     P_422 = ("P422", "Value not less than maximum,\tvalue: {0},\tmax: {1}{2}", "值{0}未小于最大值{1}")
     P_430 = ("P430", "Bit width exceeded", "位宽超出限制")
-    P_431 = ("P431", "Bit width overflow,\tfield: {0},\tlimit: {1}", "字段{0}位宽溢出，限制{1}位")
+    P_431 = ("P431", "Bit width overflow,\tfield: {0},\tlimit: {1}{2}", "字段{0}位宽溢出，限制{1}位")
 
     # Data（数据库、缓存、数据一致性、持久层）
     D_000 = ("D000", "Data unknown error", "数据未知错误")
@@ -136,20 +134,17 @@ class ErrorCode(BaseEnum):
     D_110 = ("D110", "No instance matched for type,\ttype: {0}", "类型{0}未匹配到任何实例")
     D_120 = ("D120", "Type matched multiple instances,\ttype: {0},\tnames: {1}", "类型{0}匹配到多个实例")
     D_130 = ("D130", "No instance resolved by type or name,\ttype: {0},\tname: {1}", "类型{0}或名称{1}未解析到实例")
-    D_300 = ("D300", "Data format invalid", "数据格式错误")
-    D_310 = ("D310", "Row structure error", "行结构错误")
-    D_311 = ("D311", "Row length mismatch,\texpected: {0},\tgot: {1}{2}", "行长度不匹配，期望{0}实际{1}")
     D_800 = ("D800", "Data backup failed", "数据备份失败")
     D_810 = ("D811", "Database backup failed,\tpath: {0}", "数据库备份失败，备份路径: {0}")
 
     # Network/IO（网络通信、连接、超时、协议、文件IO）
     N_100 = ("N100", "Connection failed", "连接失败")
-    N_110 = ("N110", "HTTP connection failed,\treason: {0}", "HTTP连接失败原因为{0}")
+    N_110 = ("N110", "HTTP connection failed,\treason: {0},\turl: {1},\tmethod: {2}", "HTTP连接失败原因为{0}")
 
     # Config（配置缺失、格式错误、环境变量、配置中心）
     C_300 = ("C300", "Config value illegal", "配置值非法")
     C_310 = ("C310", "Config property read-only", "配置属性只读")
-    C_311 = ("C311", "Attribute is read-only,\tattr: {0}", "属性{0}为只读")
+    C_311 = ("C311", "Attribute is read-only,\tattr: {0},\tclass: {1}", "属性{0}为只读")
     C_500 = ("C500", "Config file load failed", "配置文件加载失败")
     C_501 = ("C501", "Config file not found,\tpath: {0}", "配置文件未找到，路径: {0}")
 

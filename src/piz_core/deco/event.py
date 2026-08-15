@@ -1,11 +1,11 @@
 """ 事件监听装饰器
 
-:version: 0.2.260724
+:version: 0.2.260814
 """
 import weakref
 from typing import TypeVar, Callable
 
-from piz_core.constants import NAMESPACE, ErrorCode
+from piz_core.const import NAMESPACE, ErrorCode
 from piz_core.infra.event import event_bus
 
 
@@ -17,11 +17,11 @@ def event_listener(*event_types: type[T]):
     """ 事件监听器装饰器
     """
     def _decorator(func: Callable) -> Callable:
-        from piz_core.util import get_func_name, method_kind
+        from piz_core.util import get_func_path, method_kind
         # 若没有设置事件类型则异常
         if not event_types:
             # 事件类型为空
-            raise ValueError(ErrorCode.P_102.format_message(f",\tfunc: {get_func_name(func)}"))
+            raise ValueError(ErrorCode.P_102.format_message(f",\tfunc: {get_func_path(func)}"))
         # 获取method_kind对方法的定义
         _, in_cls = method_kind(func)
         # 若是类定义方法

@@ -1,6 +1,6 @@
 """ Web连接组件
 
-:version: 0.2.260805
+:version: 0.2.260814
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from piz_core.constants import ErrorCode
+from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 from piz_core.util import NonNegative
 
@@ -159,7 +159,7 @@ class _HttpClient:
                             text=text, content=content, url=e.url)
         except URLError as e:
             # HTTP连接异常
-            raise ConnectionError(ErrorCode.N_110.format_message(e.reason)) from e
+            raise ConnectionError(ErrorCode.N_110.format_message(e.reason, url, method)) from e
 
     @validate_types
     def get(self, url: str, *, params: dict[str, Any] | list[tuple[str, Any]] | None = None,

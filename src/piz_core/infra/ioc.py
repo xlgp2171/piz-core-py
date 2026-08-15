@@ -1,6 +1,6 @@
 """ 控制反转组件
 
-:version: 0.3.260807
+:version: 0.3.260814
 """
 from __future__ import annotations
 
@@ -13,10 +13,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, TypeVar, overload, Generic, Final, Sequence
+from typing import Any, Callable, TypeVar, overload, Generic, Final
 
-from piz_core.constants import CORE_TAG, ErrorCode, ConfigConstant, NAMESPACE
+from piz_core.const import CORE_TAG, ErrorCode, ConfigConstant, NAMESPACE, SysTag
 from piz_core.deco import validate_types
+from piz_core.infra.logger import LogPayload
 from piz_core.util import get_class_path, real_path, is_file, path_exists, get_resource_as_stream, get_nested, \
     dict_deep_merge, current_time_millis, method_unavailable_exception, path_stat, LazyMessage
 
@@ -53,8 +54,11 @@ class _Container:
         """ 获取实例（调用方必须已持有 self._lock） """
         ...
         if name in self._instance_cache:
-            logger.debug(LazyMessage(lambda: f"{CORE_TAG}Resolve instance,\t\n\tinstance_name: {name}"))
-            return self._instance_cache[name]
+            instance = self._instance_cache[name]
+            logger.debug(LazyMessage(
+                lambda: LogPayload.encode(SysTag.SYSTEM,
+                    f"{CORE_TAG}Resolve instance,\t\n\tname: {name},\t\n\tclass: {get_class_path(instance)}")))
+            return instance
         return None
 
     @validate_types
@@ -119,7 +123,8 @@ class _Container:
         if not ignore_errors:
             # 若都无法匹配
             raise ValueError(error_hint)
-        logger.debug(LazyMessage(lambda: f"{CORE_TAG}Ignore error,\t\n\thint: {error_hint}"))
+        logger.debug(LazyMessage(lambda: LogPayload.encode(
+            SysTag.SYSTEM,f"{CORE_TAG}Ignore error,\t\n\thint: {error_hint}")))
         return None
 
     @validate_types
@@ -136,7 +141,8 @@ class _Container:
         """
         # 若实例已注册则直接返回
         if (existing := self.resolve(instance_name=instance_name, ignore_errors=True)) is not None:
-            logger.debug(LazyMessage(lambda: f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name}"))
+            logger.debug(LazyMessage(lambda: LogPayload.encode(
+                SysTag.SYSTEM, f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name}")))
             return existing
         # 若实例生成函数为None
         elif instance_func is None or (instance := instance_func()) is None:
@@ -145,11 +151,14 @@ class _Container:
         else:
             with self._lock:
                 if (existing := self._get_instance(instance_name)) is not None:
-                    logger.debug(LazyMessage(lambda: f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name}"))
+                    logger.debug(LazyMessage(lambda: LogPayload.encode(
+                        SysTag.SYSTEM, f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name}")))
                     return existing
                 # 这个时候再实例化
                 self._instance_cache[instance_name] = instance
-                logger.info(f"{CORE_TAG}Register instance,\tname: {instance_name},\tclass: {get_class_path(instance)}")
+                logger.info(LogPayload.encode(
+                    SysTag.SYSTEM, f"{CORE_TAG}Register instance,\tname: {instance_name},\t"
+                                   f"class: {get_class_path(instance)}"))
                 # 将实例名称加入类型缓存
                 self._type_index[type(instance)].add(instance_name)
                 return instance
@@ -159,7 +168,7 @@ def inject_hook(instance: Any, member_name: str, member: Any):
 
     :param instance: 实例
     :param member_name: 成员名称
-    :param member: 实例成员
+    :param member: 实例成员（和getattr(instance, member_name)有区别）
     """
     # 若为@inject标记则调用方法一次（注入）
     if getattr(member, "__inject", None) == NAMESPACE:
@@ -229,8 +238,8 @@ class _Environment:
             # 读取toml文件内容
             with get_resource_as_stream(_path, mode="rb") as f:
                 config = tomllib.load(f)
-            logger.debug(LazyMessage(
-                lambda: f"{CORE_TAG}Load toml config,\t\n\tpath: {_path},\t\n\tcontent: {repr(config)}"))
+            logger.debug(LazyMessage(lambda: LogPayload.encode(
+                SysTag.SYSTEM, f"{CORE_TAG}Load toml config,\t\n\tpath: {_path}")))
             # 文件绝对路径和配置文件内容
             return _path, config
         # 文件未找到
@@ -273,11 +282,14 @@ class _Environment:
             # 遍历扩展配置并合并
             for i in get_nested(config, *ConfigConstant.PROFILES_ACTIVE, expected=list, default=[]):
                 config = dict_deep_merge(config, self._load_config(real_path(_path,i, parent=True))[1])
+            logger.debug(LazyMessage(lambda: LogPayload.encode(
+                SysTag.SYSTEM, f"{CORE_TAG}Config loaded,\t\n\tcontent: {repr(config)}")))
             # 设置到缓存（只考虑主文件的时间戳）
             self.set_config(_path, config, _timestamp, merge=False)
         else:
-            logger.debug(LazyMessage(lambda: f"{CORE_TAG}Reload rejected,\t\n\targs: {timestamp}ms,\t"
-                                             f"\n\tfile: {file_timestamp}ms,\t\n\tcache: {cache_timestamp}ms"))
+            logger.debug(LazyMessage(lambda: LogPayload.encode(SysTag.SYSTEM,
+                f"{CORE_TAG}Reload rejected,\t\n\targs: {timestamp}ms,\t"
+                f"\n\tfile: {file_timestamp}ms,\t\n\tcache: {cache_timestamp}ms")))
         return _path, self._config_cache[_path][1]
 
     @validate_types
@@ -313,7 +325,8 @@ class _Environment:
             self.remove_config(path)
         # 缓存配置，若时间戳未设置则以当前时间戳进行设置
         self._config_cache[path] = (config, (_timestamp := timestamp if timestamp > 0 else current_time_millis()))
-        logger.info(f"{CORE_TAG}Config cached,\tpath: {path},\ttimestamp: {_timestamp}")
+        logger.info(LogPayload.encode(
+            SysTag.SYSTEM, f"{CORE_TAG}Config cached,\tpath: {path},\ttimestamp: {_timestamp}"))
 
     @validate_types
     def remove_config(self, path: str):
@@ -321,7 +334,7 @@ class _Environment:
         """
         if path in self._config_cache:
             del self._config_cache[path]
-            logger.info(f"{CORE_TAG}Clean config,\tpath: {path}")
+            logger.info(LogPayload.encode(SysTag.SYSTEM, f"{CORE_TAG}Clean config,\tpath: {path}"))
 
     @classmethod
     @validate_types
@@ -439,4 +452,4 @@ class Prop(BaseDescriptor[Any]):
         :raises AttributeError: 属性为只读
         """
         # 属性为只读
-        raise AttributeError(ErrorCode.C_311.format_message(self._attr_name))
+        raise AttributeError(ErrorCode.C_311.format_message(self._attr_name, get_class_path(self)))

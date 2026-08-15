@@ -1,13 +1,13 @@
 """ 数据库相关处理工具
 
-:version: 0.3.260801
+:version: 0.3.260814
 """
 import inspect
 import re
 from dataclasses import is_dataclass, fields
-from typing import Any, TypeVar
+from typing import Any, TypeVar, overload
 
-from piz_core.constants import ErrorCode
+from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 from piz_core.util.valid import is_param_object
 from piz_core.util.reflect import get_class_path
@@ -75,7 +75,7 @@ def build_sql_and_params(sql: str, arguments: dict[str, Any], *, error_hint: str
         name = next(iter(arguments))
         # 若整体绑定行列表（VALUES(#{values})）
         if len(names) == 1 and names[0] == name:
-            rows = [_to_row(i, error_hint=f",\targs: {name}{error_hint}") for i in seq]
+            rows = [_to_row(i, error_hint=f"{error_hint},\targs: {name}") for i in seq]
             # 若数据为[]或者()则无效
             if not rows[0]:
                 # 行数据为空
@@ -84,8 +84,7 @@ def build_sql_and_params(sql: str, arguments: dict[str, Any], *, error_hint: str
             for i in rows:
                 if len(i) != len(rows[0]):
                     # 长度不一致
-                    raise ValueError(ErrorCode.P_331.format_message(
-                        len(rows[0]), len(i), name, error_hint))
+                    raise ValueError(ErrorCode.P_331.format_message(len(rows[0]), len(i), name, error_hint))
             return _PARAM_PATTERN.sub(",".join("?" * len(rows[0])), sql), rows
         # 若为按占位符名逐元素提取（VALUES(#{uid},#{age})）
         try:
@@ -115,8 +114,17 @@ def build_sql_and_params(sql: str, arguments: dict[str, Any], *, error_hint: str
         return "?"
     return _PARAM_PATTERN.sub(_repl, sql), tuple(params)
 
+@overload
+def map_row(value: dict, res_type: None, *, strict: bool = False, error_hint: str = "") -> dict: ...
+
+@overload
+def map_row(value: dict, res_type: type[T], *, strict: bool = False, error_hint: str = "") -> T: ...
+
+@overload
+def map_row(value: None, res_type: Any, *, strict: bool = False, error_hint: str = "") -> None: ...
+
 @validate_types
-def map_row(value: dict | None, res_type: type[T] | None, *, strict: bool = False) -> T | dict | None:
+def map_row(value: dict | None, res_type: type[T] | None, *, strict: bool = False, error_hint: str = "") -> T | dict | None:
     """ 将单行dict转换为res_type实体
 
     - res_type为dict时原样返回
@@ -126,6 +134,8 @@ def map_row(value: dict | None, res_type: type[T] | None, *, strict: bool = Fals
     :param value: 数据结果
     :param res_type: 返回类型
     :param strict: 是否启用严谨模式（默认False）
+    :param error_hint: 异常后的附加信息
+    :raises TypeErrot: 构造函数不匹配
     """
     if value is None or res_type is None or not isinstance(res_type, type) or issubclass(res_type, dict):
         return value
@@ -146,10 +156,12 @@ def map_row(value: dict | None, res_type: type[T] | None, *, strict: bool = Fals
         if strict:
             _params = {name: (param.annotation if param.annotation is not inspect.Parameter.empty else Any)
                        for name, param in params.items()}
-            raise TypeError(ErrorCode.P_105.format_message(res_type.__qualname__, _params, value)) from e
+            # 构造函数不匹配
+            raise TypeError(ErrorCode.P_105.format_message(
+                get_class_path(res_type), _params, value, error_hint)) from e
     # 跳过__init__直接实例化，设置每个属性
     instance = object.__new__(res_type)
-
+    # 直接设置到对象中
     for k, v in value.items():
         try:
             setattr(instance, k, v)

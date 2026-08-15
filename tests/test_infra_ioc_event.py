@@ -1,7 +1,7 @@
 import unittest
 
 from _support import DbService, db_service
-from piz_core.constants import NAMESPACE
+from piz_core.const import NAMESPACE
 from piz_core.infra.ioc import environment, container
 from piz_core.util import real_path
 
