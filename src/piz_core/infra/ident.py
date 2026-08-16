@@ -235,14 +235,6 @@ class _IdGenerator:
         """
         return self._default_builder.next_id()
 
-    @staticmethod
-    @validate_types
-    def next_uuid(simple: bool = False) -> str:
-        """ 生成UUID
-        """
-        _id = str(uuid.uuid1())
-        return _id.replace("-", "") if simple else _id
-
     def parse(self, packed_id: int) -> Identity:
         """ 解析ID返回结构体
 
