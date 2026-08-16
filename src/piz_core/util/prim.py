@@ -1,6 +1,6 @@
 """ 原始数据（primitive）处理工具
 
-:version: 0.2.260718
+:version: 0.2.260816
 """
 import math
 import random
@@ -18,19 +18,15 @@ _TRUNCATION_LIMIT: Final[int] = 256
 """ 截断长度阈值 """
 _UNDERLINE: Final[str] = "_"
 """ 标准下划线 """
-EMPTY: Final[str] = ""
+_EMPTY: Final[str] = ""
 """ 空字符串 """
-ZERO: Final[int] = 0
-""" 整型0 """
-ONE: Final[int] = 1
-""" 整型1 """
 
 
 def to_boolean(value: Any) -> bool:
     """ 将任意参数转换为布尔型
     """
     return value is not None and (
-            equals_ignore_case("true", str(value)) or to_float(value, ZERO) == 1)
+            equals_ignore_case("true", str(value)) or to_float(value, 0) == 1)
 
 def default_string(value: Any, strip: bool = False) -> str:
     """ 将任意参数转换为""（参数为None）或字符串（object类型调用__str__方法）
@@ -39,7 +35,7 @@ def default_string(value: Any, strip: bool = False) -> str:
     :param strip: 是否截去两端
     """
     if value is None:
-        return EMPTY
+        return _EMPTY
     s = str(value)
     return s.strip() if strip else s
 
@@ -139,7 +135,7 @@ def _change_first_character_case(value: str, capitalized: bool) -> str:
     :param capitalized: 是否大写
     """
     if is_blank(value):
-        return EMPTY
+        return _EMPTY
     updated = value[0].upper() if capitalized else value[0].lower()
     return updated + value[1:]
 
@@ -148,7 +144,7 @@ def camel_to_underline(value: str) -> str:
     """ 将驼峰命名转下划线命名（AbCd -> ab_cd）
     """
     if is_blank(value):
-        return EMPTY
+        return _EMPTY
     s = ""
 
     for n, i in enumerate(default_string(value, strip=True)):
@@ -162,7 +158,7 @@ def underline_to_camel(value: str) -> str:
     """ 将下划线命名转驼峰命名（ab_cd -> AbCd）
     """
     if is_blank(value):
-        return EMPTY
+        return _EMPTY
     s, upper = "", True
 
     for n, i in enumerate(default_string(value, strip=True).lower()):
@@ -176,7 +172,7 @@ def underline_to_camel(value: str) -> str:
     return s
 
 @validate_types
-def regex_extract(value: str, pattern: str | re.Pattern, group: Annotated[int, NonNegative()] = ONE) -> str | None:
+def regex_extract(value: str, pattern: str | re.Pattern, group: Annotated[int, NonNegative()] = 1) -> str | None:
     """ 提取正则表达式匹配的字符串
 
     :param value: 源字符串
@@ -212,7 +208,7 @@ def truncate(value: str, threshold: Annotated[int, NonNegative()] = _TRUNCATION_
 def default_int(value: Any) -> int:
     """ 将任意参数转换为整型0（参数为None或非整型）或对应整型
     """
-    return ZERO if value is None else to_int(value, ZERO)
+    return 0 if value is None else to_int(value, 0)
 
 def default_float(value: Any) -> float:
     """ 将任意参数转换为浮点型0.0（参数为None或非浮点型）或对应浮点型
@@ -220,7 +216,7 @@ def default_float(value: Any) -> float:
     return 0.0 if value is None else to_float(value, 0.0)
 
 @validate_types
-def to_int(value: Any, default: int = ZERO) -> int:
+def to_int(value: Any, default: int = 0) -> int:
     """ 将任意参数转换为整型，若转换失败则使用默认值
 
     :param value: 源数据
@@ -242,7 +238,7 @@ def to_float(value: Any, default: float | int = 0.0) -> float:
 
 @validate_types
 def randrange_step(start: float | int, stop: float | int, step: float | int, ndigits: Annotated[
-    int, NonNegative()] = ZERO) -> float:
+    int, NonNegative()] = 0) -> float:
     """ 在 [start,stop) 范围内按step步长随机取值，返回保留ndigits位的结果
 
     :param start: 起始值（数据不能小于1e-12）
@@ -252,8 +248,8 @@ def randrange_step(start: float | int, stop: float | int, step: float | int, ndi
     """
     if step == 0:
         return round(start, ndigits) * 1.0
-    count = max(ZERO, math.ceil((stop - start) / step - 1e-12))
-    idx = random.randrange(count) if count > 0 else ZERO
+    count = max(0, math.ceil((stop - start) / step - 1e-12))
+    idx = random.randrange(count) if count > 0 else 0
     return round(start + step * idx * 1.0, ndigits) * 1.0
 
 @validate_types
@@ -276,5 +272,5 @@ def to_plain_string(value: int | float, ndigits: Annotated[int, NonNegative()]) 
     return format(_quantize(value, ndigits), 'f')
 
 
-def _quantize(value: float, ndigits: Annotated[int, NonNegative()] = ZERO) -> Decimal:
+def _quantize(value: float, ndigits: Annotated[int, NonNegative()] = 0) -> Decimal:
     return Decimal(str(value)).quantize(Decimal(10) ** -ndigits, rounding=ROUND_HALF_UP)

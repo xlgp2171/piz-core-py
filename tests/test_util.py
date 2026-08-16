@@ -21,6 +21,7 @@ import piz_core.util.crypto as crypto
 import piz_core.util.db as database
 import piz_core.util.dt as temporal
 import piz_core.util.fs as filesystem
+import piz_core.util.ident as identity
 import piz_core.util.prim as primitive
 import piz_core.util.reflect as reflect
 import piz_core.util.ser as serialization
@@ -28,7 +29,7 @@ import piz_core.util.system as system
 
 from _support import Sample, DICT_DATA_A, DICT_DATA_B, _sample_func, User, Address, PlainObj, Item, MyDict, \
     KwargsClass, FilteredClass, ReadOnlyProp, BadKwargsInit, NeedRequired, BadFilteredInit, NoMatchParams, \
-    NotCallable, CallableObj, SimpleDC, WithDefault, WithInitVar, EmptyDC
+    NotCallable, CallableObj, SimpleDC, WithDefault, WithInitVar, EmptyDC, print_event, MyHooks
 
 
 # util/coll工具测试
@@ -1738,6 +1739,41 @@ class TestPrimitive(unittest.TestCase):
         self.assertFalse(primitive.to_boolean(object()))
 
 
+# util/ident工具测试
+class TestIdentity(unittest.TestCase):
+    def test_next_uuid(self):
+        # 默认 next_uuid 应返回标准 36 字符带横线 UUID
+        u = identity.next_uuid()
+        self.assertIsInstance(u, str)
+        self.assertEqual(len(u), 36)
+        self.assertIn('-', u)
+        # simple=True 时应返回 32 字符无横线 UUID
+        u = identity.next_uuid(simple=True)
+        self.assertIsInstance(u, str)
+        self.assertEqual(len(u), 32)
+        self.assertNotIn('-', u)
+        # 批量生成的 UUID 应唯一
+        uuids = [identity.next_uuid() for _ in range(100)]
+        self.assertEqual(len(set(uuids)), len(uuids))
+
+    def test_next_func_id(self):
+        # 普通函数应返回稳定的 id，多次调用结果一致
+        self.assertIsInstance(id1 := identity.next_func_id(print_event), int)
+        self.assertEqual(id1, identity.next_func_id(print_event))
+        # bound method 应返回稳定标识，不受 getattr 新对象影响
+        # 同一实例的同一方法，不同方式获取，id 应相同
+        id1 = identity.next_func_id((hooks := MyHooks()).on_start)
+        self.assertEqual(id1, identity.next_func_id(hooks.on_start))
+        self.assertEqual(id1, identity.next_func_id(getattr(hooks, "on_start")))
+        # 不同实例的同名方法应返回不同标识
+        a, b = MyHooks(), MyHooks()
+        self.assertNotEqual(identity.next_func_id(a.on_start), identity.next_func_id(b.on_start))
+        # 同一实例的不同方法应返回不同标识
+        self.assertNotEqual(identity.next_func_id(hooks.on_start), identity.next_func_id(hooks.on_stop))
+        # lambda 每次创建新对象，id 应不同
+        a, b = lambda x: x, lambda x: x
+        self.assertNotEqual(identity.next_func_id(a), identity.next_func_id(b))
+
 # util/reflect工具测试
 class TestReflect(unittest.TestCase):
     def test_get_func_path(self):
@@ -1984,9 +2020,8 @@ class TestSerialization(unittest.TestCase):
 
 # util/system工具测试
 class TestSystem(unittest.TestCase):
-    # ========== get_caller_info ==========
     def test_get_caller_info(self):
-        """测试 get_caller_info 返回调用者的栈帧摘要"""
+        # 测试 get_caller_info 返回调用者的栈帧摘要
         info = system.get_caller_info()
         self.assertIsInstance(info, traceback.FrameSummary)
         self.assertIsNotNone(info.filename)
@@ -1997,7 +2032,7 @@ class TestSystem(unittest.TestCase):
         self.assertEqual(info.name, "test_get_caller_info")
 
     def test_get_caller_frame(self):
-        """测试 get_caller_frame 返回调用者的活跃帧对象"""
+        # 测试 get_caller_frame 返回调用者的活跃帧对象
         frame = system.get_caller_frame()
         self.assertIsInstance(frame, types.FrameType)
         # 验证可以访问局部变量

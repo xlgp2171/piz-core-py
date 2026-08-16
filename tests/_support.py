@@ -353,6 +353,13 @@ class SlotClass:
     def __init__(self):
         self.x = 1
 
+class MyHooks:
+    async def on_start(self, ctx):
+        pass
+
+    async def on_stop(self, ctx):
+        pass
+
 @provide
 def db_service() -> DbService:
     return DbService()

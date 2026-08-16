@@ -164,25 +164,6 @@ class TestIdGenerator(unittest.TestCase):
             if curr.timestamp == nxt.timestamp:
                 self.assertEqual(nxt.sequence, curr.sequence + 1)
 
-    def test_next_uuid_default_format(self):
-        """默认 next_uuid 应返回标准 36 字符带横线 UUID"""
-        u = id_generator.next_uuid()
-        self.assertIsInstance(u, str)
-        self.assertEqual(len(u), 36)
-        self.assertIn('-', u)
-
-    def test_next_uuid_simple_format(self):
-        """simple=True 时应返回 32 字符无横线 UUID"""
-        u = id_generator.next_uuid(simple=True)
-        self.assertIsInstance(u, str)
-        self.assertEqual(len(u), 32)
-        self.assertNotIn('-', u)
-
-    def test_next_uuid_uniqueness(self):
-        """批量生成的 UUID 应唯一"""
-        uuids = [id_generator.next_uuid() for _ in range(100)]
-        self.assertEqual(len(set(uuids)), len(uuids))
-
     def test_concurrent_next_id_uniqueness(self):
         """多线程并发调用 id_generator.next_id()，所有 ID 应全局唯一"""
         results = []

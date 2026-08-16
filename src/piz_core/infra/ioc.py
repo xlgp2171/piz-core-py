@@ -1,6 +1,6 @@
 """ 控制反转组件
 
-:version: 0.3.260814
+:version: 0.3.260816
 """
 from __future__ import annotations
 
@@ -61,9 +61,16 @@ class _Container:
             return instance
         return None
 
+    @overload
+    def resolve(self, *, instance_type: type[T], instance_name: str | None = None,
+                ignore_errors: bool = False) -> T: ...
+
+    @overload
+    def resolve(self, *, instance_type: None = None, instance_name: str, ignore_errors: bool = False) -> Any: ...
+
     @validate_types
-    def resolve(self, *, instance_type: type | None = None, instance_name: str | None = None,
-                     ignore_errors: bool = False) -> Any:
+    def resolve(self, *, instance_type: type[T] | None = None, instance_name: str | None = None,
+                     ignore_errors: bool = False) -> Any | T:
         """ 按名称和/或类型获取已注册的实例
 
         - 同时传入类型和名称：以类型优先查找，并校验名称是指定名称的实例
@@ -129,9 +136,10 @@ class _Container:
 
     @validate_types
     def ensure(self, instance_name: str, instance_func: Callable[[], Any]) -> Any:
-        """ 注册实例到容器，若已注册则直接返回实例
+        """ 注册实例到容器，直接返回实例
 
-        - 若指定名称已存在实例，返回已有实例（幂等）
+        - 若指定名称已存在实例，返回已存在实例（幂等）
+        - 若指定名称未存在实例，返回新创建实例
         - 若实例为 None，抛出 ValueError
         - 同时建立类型索引，支持按类型查找
 

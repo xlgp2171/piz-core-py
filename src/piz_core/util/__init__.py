@@ -16,12 +16,13 @@ from piz_core.util.prim import (
     default_string, equals_ignore_case, is_blank, has_text, contains_whitespace, trim_all_whitespace,
     startswith_ignore_case, endswith_ignore_case, substring_after, capitalize, uncapitalize, decapitalize,
     camel_to_underline, underline_to_camel, regex_extract, regex_extract_all, truncate, default_int, default_float,
-    to_int, to_float, randrange_step, round_standard, to_plain_string, to_boolean, EMPTY, ZERO, ONE)
+    to_int, to_float, randrange_step, round_standard, to_plain_string, to_boolean)
 from piz_core.util.fs import (
     get_resource_as_stream, read_bytes, read_text, read_lines, path_exists, path_stat, is_file,
     is_directory, make_dirs, delete_path, write_file, write_temporary_file, list_paths, walk_paths, real_path)
 from piz_core.util.db import build_params, build_sql_and_params, map_row
 from piz_core.util.ser import read_object, dump_object, dump_json, dataclass_values, JsonEncoder
+from piz_core.util.ident import next_uuid, next_func_id
 
 
 __all__ = [
@@ -41,12 +42,13 @@ __all__ = [
     "get_resource_as_stream", "read_bytes", "read_text", "read_lines", "path_exists", "path_stat",
     "is_file", "is_directory", "make_dirs", "delete_path", "write_file", "write_temporary_file", "list_paths",
     "walk_paths", "real_path",
+    # ident
+    "next_uuid", "next_func_id",
     # prim
     "default_string", "equals_ignore_case", "is_blank", "has_text", "contains_whitespace", "trim_all_whitespace",
     "startswith_ignore_case", "endswith_ignore_case", "substring_after", "capitalize", "uncapitalize", "decapitalize",
     "camel_to_underline", "underline_to_camel", "regex_extract", "regex_extract_all", "truncate", "default_int",
     "default_float", "to_int", "to_float", "randrange_step", "round_standard", "to_plain_string", "to_boolean",
-    "EMPTY", "ZERO", "ONE",
     # reflect
     "get_func_path", "get_class_path", "method_kind", "bind_arguments", "iter_arguments", "get_return_annotation",
     # ser

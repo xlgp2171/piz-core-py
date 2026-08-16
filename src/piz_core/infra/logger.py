@@ -1,6 +1,6 @@
 """ 记录器组件
 
-:version: 0.2.260725
+:version: 0.2.260815
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import Callable, Final, Annotated, cast
 from piz_core.const import SysTag, namespaced
 from piz_core.deco import validate_types
 from piz_core.setting import Settings
-from piz_core.util import to_int, DATETIME_PATTERN, NonNegative, now_as_string, real_path, EMPTY, is_blank, make_dirs
+from piz_core.util import to_int, DATETIME_PATTERN, NonNegative, now_as_string, real_path, is_blank, make_dirs
 
 
 _LOG_FILE_MIN_BYTES: Final[int] = 1024 * 1024
@@ -116,7 +116,7 @@ class _LogBaseHandler(logging.Handler):
             return False
         self._lpd = LogPayload(s)
         # 若是发布模式则数据不往下传递
-        record.msg = self._lpd.message if (is_record := self._lpd.mode & LogMode.RECORD == LogMode.RECORD) else EMPTY
+        record.msg = self._lpd.message if (is_record := self._lpd.mode & LogMode.RECORD == LogMode.RECORD) else ""
         # 若日志需要记录，则返回True
         return is_record if self._mode_filter else True
 
@@ -164,7 +164,7 @@ class _LogPublishHandler(_LogBaseHandler):
             self._publish(record)
             # 若只是发布，则后续不需要记录
             if self._lpd.mode == LogMode.PUBLISH:
-                record.msg = EMPTY
+                record.msg = ""
 
     def _publish(self, record: logging.LogRecord):
         try:
