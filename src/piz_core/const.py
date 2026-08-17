@@ -1,6 +1,6 @@
 """ 常量
 
-:version: 0.3.260815
+:version: 0.3.260816
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -127,6 +127,8 @@ class ErrorCode(BaseEnum):
     P_422 = ("P422", "Value not less than maximum,\tvalue: {0},\tmax: {1}{2}", "值{0}未小于最大值{1}")
     P_430 = ("P430", "Bit width exceeded", "位宽超出限制")
     P_431 = ("P431", "Bit width overflow,\tfield: {0},\tlimit: {1}{2}", "字段{0}位宽溢出，限制{1}位")
+    P_440 = ("P440", "Parameter length exceeded", "参数长度超出限制")
+    P_441 = ("P441", "Prompt length exceeds limit,\tlength: {0},\tlimit: {1}{2}", "提示长度{0}超过限制{1}")
 
     # Data（数据库、缓存、数据一致性、持久层）
     D_000 = ("D000", "Data unknown error", "数据未知错误")
