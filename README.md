@@ -1,9 +1,9 @@
 # piz-core-py
 
 ## Overview
-快速架构方案，技术验证使用，实现了基本功能
+轻量架构设计，基本功能完备，独立项目可用，技术参考，技术验证
 
-- 运行在python3.12环境
+- 运行于python3.12环境
 
 
 ## Features
@@ -11,6 +11,7 @@
 - 轻量级数据库框架，包括装饰器 `@select` `@insert` `@update` `@delete` 和基类 `BaseMapper`
 - Sqlite基础应用实现
 - 统一的日志处理和辅助工具
+- 暂无外部引用
 
 
 ## Installation
