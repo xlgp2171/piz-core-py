@@ -1,6 +1,6 @@
 """ 记录器组件
 
-:version: 0.2.260815
+:version: 0.3.260818
 """
 from __future__ import annotations
 
@@ -112,7 +112,7 @@ class _LogBaseHandler(logging.Handler):
 
     def _payload_filter(self, record: logging.LogRecord) -> bool:
         # 若无消息则不输出
-        if is_blank(s := record.getMessage()):
+        if is_blank(s := record.msg):
             return False
         self._lpd = LogPayload(s)
         # 若是发布模式则数据不往下传递
@@ -172,6 +172,7 @@ class _LogPublishHandler(_LogBaseHandler):
             if self.payload.mode & LogMode.PUBLISH == LogMode.PUBLISH:
                 self._func(self.payload.tag, self.payload.name, self.payload.message)
         except RecursionError:
+            # 深层递归异常直接抛出
             raise
         except Exception:
             self.handleError(record)
