@@ -15,8 +15,8 @@ from typing import Callable, Final, Annotated, cast
 from piz_core.const import SysTag, namespaced
 from piz_core.deco import validate_types
 from piz_core.setting import Settings
-from piz_core.util import to_int, DATETIME_PATTERN, NonNegative, now_as_string, real_path, is_blank, make_dirs
-
+from piz_core.util import to_int, DATETIME_PATTERN, NonNegative, now_as_string, real_path, is_blank, make_dirs, \
+    default_string
 
 _LOG_FILE_MIN_BYTES: Final[int] = 1024 * 1024
 """ 日志文件最小容量（1MB） """
@@ -112,7 +112,7 @@ class _LogBaseHandler(logging.Handler):
 
     def _payload_filter(self, record: logging.LogRecord) -> bool:
         # 若无消息则不输出
-        if is_blank(s := record.msg):
+        if is_blank(s := default_string(record.msg)):
             return False
         self._lpd = LogPayload(s)
         # 若是发布模式则数据不往下传递

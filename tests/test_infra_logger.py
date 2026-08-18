@@ -117,3 +117,4 @@ class TestLogger(unittest.TestCase):
             SysTag.OUTPUT, "发布的消息", "PUBLISHED", LogMode.PUBLISH | LogMode.RECORD))
         logger.debug("DEBUG_调试信息")
         logger.info("INFO_TEST_标准日志")
+        logger.info("参数附加 %s or %s", "YES", "NO")
