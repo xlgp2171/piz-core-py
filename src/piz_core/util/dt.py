@@ -27,6 +27,11 @@ class TimeTask:
     """ 任务名称 """
     elapsed: int
     """ 耗费的毫秒数 """
+    @staticmethod
+    def empty() -> "TimeTask":
+        """ 空TimeTask
+        """
+        return TimeTask("", -1)
 
 
 class StopWatch:
@@ -49,6 +54,8 @@ class StopWatch:
         self._start_ms: int = -1
         # 最近一次耗费毫秒数
         self._last_ms: int = 0
+        # 最近一次任务
+        self._last_task = TimeTask.empty()
         # 总共耗费的时间（累加_last_ms）
         self._total_ms: int = 0
         self._lock = threading.Lock()
@@ -94,13 +101,13 @@ class StopWatch:
         if not self.is_running():
             # 计时器未启动
             raise RuntimeError(ErrorCode.S_222.message)
+        from piz_core.util.prim import default_string
         # 当前耗费的毫秒数
         self._last_ms = self._perf_ms() - self._start_ms
         self._total_ms += self._last_ms
+        self._last_task = TimeTask(default_string(self._task_name), self._last_ms)
         # 若需要保留历史信息
         if self._keep_history:
-            from piz_core.util.prim import default_string
-
             self._history.append(self.last_task)
         self._task_name, self._start_ms = None, -1
 
@@ -117,6 +124,7 @@ class StopWatch:
                     pass
             self._history.clear()
             self._last_ms, self._total_ms = 0, 0
+            self._last_task = TimeTask.empty()
         return self
 
     def accept(self, item: Any) -> "StopWatch":
@@ -132,9 +140,7 @@ class StopWatch:
     def last_task(self) -> TimeTask:
         """最近一次耗时（毫秒）
         """
-        from piz_core.util.prim import default_string
-
-        return TimeTask(default_string(self._task_name), self._last_ms)
+        return self._last_task
 
     @property
     def current_elapsed(self) -> int:
