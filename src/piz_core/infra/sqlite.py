@@ -1,6 +1,6 @@
 """ Sqlite3组件
 
-:version: 0.3.260814
+:version: 0.3.260819
 """
 from __future__ import annotations
 
@@ -92,11 +92,10 @@ class SqliteDatabase(SqlDatabase):
                 nested.execute(f"RELEASE SAVEPOINT {tag}")
                 logger.debug(LazyMessage(lambda: LogPayload.encode(
                     SysTag.SYSTEM, f"{CORE_TAG}Transaction committed,\t\n\tsavepoint: {tag}")))
-            except BaseException as e:
+            except BaseException:
                 nested.execute(f"ROLLBACK TO SAVEPOINT {tag}")
-                logger.debug(LazyMessage(
-                    lambda: LogPayload.encode(SysTag.SYSTEM,
-                        f"{CORE_TAG}Transaction rollback,\t\n\tsavepoint: {tag}")), exc_info=True)
+                logger.warning(LogPayload.encode(SysTag.WARN,
+                        f"{CORE_TAG}Transaction rollback,\t\n\tsavepoint: {tag}"), exc_info=True)
                 raise
         else:
             # 把事务连接挂到当前上下文（线程/协程隔离）
@@ -110,10 +109,10 @@ class SqliteDatabase(SqlDatabase):
                 conn.execute("COMMIT")
                 logger.debug(LazyMessage(lambda: LogPayload.encode(
                     SysTag.SYSTEM,f"{CORE_TAG}Transaction committed")))
-            except BaseException as e:
+            except BaseException:
                 conn.execute("ROLLBACK")
-                logger.debug(LazyMessage(lambda: LogPayload.encode(
-                    SysTag.SYSTEM, f"{CORE_TAG}Transaction rollback")), exc_info=True)
+                logger.warning(LogPayload.encode(
+                    SysTag.WARN, f"{CORE_TAG}Transaction rollback"), exc_info=True)
                 raise
             finally:
                 # 始终清理上下文
@@ -138,9 +137,9 @@ class SqliteDatabase(SqlDatabase):
         :param sql: 执行的SQL（INSERT/UPDATE/DELETE/DDL）
         :param params: 附加参数
         """
-        with StopWatch(print_func=lambda elapsed, item: logger.debug(LazyMessage(
+        with StopWatch(print_func=lambda task, item: logger.debug(LazyMessage(
                 lambda: LogPayload.encode(
-                    SysTag.SYSTEM, f"{CORE_TAG}Sql executed,\t\n\telapsed: {elapsed}ms,\t"
+                    SysTag.SYSTEM, f"{CORE_TAG}Sql executed,\t\n\telapsed: {task.elapsed}ms,\t"
                                    f"\n\tsql: {sql},\t\n\tparams: {repr(params)},\t\n\trows: {item}")))) as sw:
             sw.accept(count := self._writer.execute(sql, params).rowcount)
         return count
@@ -152,9 +151,9 @@ class SqliteDatabase(SqlDatabase):
         :param sql: 执行的SQL（INSERT/UPDATE/DELETE/DDL）
         :param params: 附加参数
         """
-        with StopWatch(print_func=lambda elapsed, item: logger.debug(LazyMessage(
+        with StopWatch(print_func=lambda task, item: logger.debug(LazyMessage(
                 lambda: LogPayload.encode(
-                SysTag.SYSTEM, f"{CORE_TAG}Sql executed,\t\n\telapsed: {elapsed}ms,\t\n\tsql: {sql},\t"
+                SysTag.SYSTEM, f"{CORE_TAG}Sql executed,\t\n\telapsed: {task.elapsed}ms,\t\n\tsql: {sql},\t"
                                f"\n\tparams: {repr(params)},\t\n\trows: {item}")))) as sw:
             sw.accept(count := self._writer.executemany(sql, params).rowcount)
         return count
@@ -163,9 +162,10 @@ class SqliteDatabase(SqlDatabase):
     def execute_script(self, script: str):
         """ 执行多语句脚本（sqlite3会先隐式COMMIT，勿在transaction内使用）
         """
-        with StopWatch(print_func=lambda elapsed, _: logger.debug(LazyMessage(
+        with StopWatch(print_func=lambda task, _: logger.debug(LazyMessage(
                 lambda: LogPayload.encode(SysTag.SYSTEM,
-                    f"{CORE_TAG}Script executed,\t\n\telapsed: {elapsed}ms,\t\n\tscript: {repr(script)}")))):
+                    f"{CORE_TAG}Script executed,\t\n\telapsed: {task.elapsed}ms,\t"
+                    f"\n\tscript: {repr(script)}")))):
             self._writer.executescript(script)
 
     @validate_types
@@ -175,9 +175,9 @@ class SqliteDatabase(SqlDatabase):
         :param sql: 执行的SQL（SELECT）
         :param params: 附加参数
         """
-        with StopWatch(print_func=lambda elapsed, item: logger.debug(LazyMessage(
+        with StopWatch(print_func=lambda task, item: logger.debug(LazyMessage(
                 lambda: LogPayload.encode(
-                    SysTag.SYSTEM, f"{CORE_TAG}Sql executed,\t\n\telapsed: {elapsed}ms,\t\n\tsql: {sql},\t"
+                    SysTag.SYSTEM, f"{CORE_TAG}Sql executed,\t\n\telapsed: {task.elapsed}ms,\t\n\tsql: {sql},\t"
                                    f"\n\tparams: {repr(params)},\t\n\tresult: {truncate(str(item))}")))) as sw:
             sw.accept(result := self._reader.execute(sql, params).fetchone())
         return result
@@ -189,9 +189,9 @@ class SqliteDatabase(SqlDatabase):
         :param sql: 执行的SQL（SELECT）
         :param params: 附加参数
         """
-        with StopWatch(print_func=lambda elapsed, item: logger.debug(LazyMessage(
+        with StopWatch(print_func=lambda task, item: logger.debug(LazyMessage(
                 lambda: LogPayload.encode(
-                    SysTag.SYSTEM, f"{CORE_TAG}sql executed,\t\n\telapsed: {elapsed}ms,\t\n\tsql: {sql},\t"
+                    SysTag.SYSTEM, f"{CORE_TAG}sql executed,\t\n\telapsed: {task.elapsed}ms,\t\n\tsql: {sql},\t"
                                    f"\n\tparams: {repr(params)},\t\n\tresult: {truncate(str(item))}")))) as sw:
             sw.accept(result := self._reader.execute(sql, params).fetchall())
         return result
@@ -219,12 +219,15 @@ class SqliteDatabase(SqlDatabase):
         make_dirs(_path := real_path(backup_path), parent=True)
         dst = sqlite3.connect(_path, timeout=self._timeout, isolation_level=None)
 
-        with StopWatch(print_func=lambda elapsed, _: logger.info(LogPayload.encode(
-                SysTag.SYSTEM, f"{CORE_TAG}Database Backup,\telapsed: {elapsed}ms,\tpath: {_path}"))):
+        with StopWatch(print_func=lambda task, _: logger.info(LogPayload.encode(
+                SysTag.SYSTEM, f"{CORE_TAG}Database backup,\telapsed: {task.elapsed}ms,\tpath: {_path}"))):
             try:
                 with dst:
                     self._writer.backup(dst, pages=pages)
             except sqlite3.Error as e:
+                logger.error(LogPayload.encode(SysTag.ERROR,
+                    f"{CORE_TAG}DataBase backup error,\tsource path: {self._path},\tbackup path: {_path}"),
+                    exc_info=True)
                 raise RuntimeError(ErrorCode.D_810.format_message(backup_path)) from e
             finally:
                 dst.close()

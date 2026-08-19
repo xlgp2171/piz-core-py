@@ -1,6 +1,6 @@
 """ 日期时间（datetime）处理工具
 
-:version: 0.3.260805
+:version: 0.3.260819
 """
 import calendar
 import threading
@@ -33,10 +33,10 @@ class StopWatch:
     """ 简易计时器，支持任务历史记录和with语句
     """
     @validate_types
-    def __init__(self, keep_history: bool = False, print_func: Callable[[int, Any], None] | None = None):
+    def __init__(self, keep_history: bool = False, print_func: Callable[[TimeTask, Any], None] | None = None):
         """
         :param keep_history: 是否保留历史记录
-        :param print_func: 打印回调函数
+        :param print_func: 打印回调函数（参数为TimeTask和accept方法的输入）
         """
         self._keep_history = keep_history
         self._print_func = print_func
@@ -82,7 +82,7 @@ class StopWatch:
             self._stop_unsafe()
         # 输出回调函数
         if self._print_func:
-            self._print_func(self.last_elapsed, self._item)
+            self._print_func(self.last_task, self._item)
         return self
 
     def _stop_unsafe(self):
@@ -101,7 +101,7 @@ class StopWatch:
         if self._keep_history:
             from piz_core.util.prim import default_string
 
-            self._history.append(TimeTask(default_string(self._task_name), self._last_ms))
+            self._history.append(self.last_task)
         self._task_name, self._start_ms = None, -1
 
     def reset(self) -> "StopWatch":
@@ -129,10 +129,12 @@ class StopWatch:
         return self._task_name is not None
 
     @property
-    def last_elapsed(self) -> int:
+    def last_task(self) -> TimeTask:
         """最近一次耗时（毫秒）
         """
-        return self._last_ms
+        from piz_core.util.prim import default_string
+
+        return TimeTask(default_string(self._task_name), self._last_ms)
 
     @property
     def current_elapsed(self) -> int:
