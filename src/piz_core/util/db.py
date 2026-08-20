@@ -1,6 +1,6 @@
 """ 数据库相关处理工具
 
-:version: 0.3.260814
+:version: 0.3.260820
 """
 import inspect
 import re
@@ -10,7 +10,7 @@ from typing import Any, TypeVar, overload
 from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 from piz_core.util.valid import is_param_object
-from piz_core.util.reflect import get_class_path
+from piz_core.util.reflect import get_class_path, get_parameters, has_kwargs_param
 from piz_core.util.prim import regex_extract_all
 from piz_core.util.coll import deep_get, extract_value
 
@@ -139,10 +139,10 @@ def map_row(value: dict | None, res_type: type[T] | None, *, strict: bool = Fals
     """
     if value is None or res_type is None or not isinstance(res_type, type) or issubclass(res_type, dict):
         return value
-    params = inspect.signature(res_type).parameters
+    params = get_parameters(res_type)
     try:
         # 若存在kwargs参数，则直接设置value的结果到kwargs参数
-        if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        if has_kwargs_param(params.values()):
             return res_type(**value)
         # 直接按照__init__签名过滤参数（dataclass也支持这种传参）
         elif kwargs := {k: v for k, v in value.items() if k in params}:

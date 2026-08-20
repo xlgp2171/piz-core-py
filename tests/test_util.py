@@ -29,7 +29,8 @@ import piz_core.util.system as system
 
 from _support import Sample, DICT_DATA_A, DICT_DATA_B, _sample_func, User, Address, PlainObj, Item, MyDict, \
     KwargsClass, FilteredClass, ReadOnlyProp, BadKwargsInit, NeedRequired, BadFilteredInit, NoMatchParams, \
-    NotCallable, CallableObj, SimpleDC, WithDefault, WithInitVar, EmptyDC, print_event, MyHooks
+    NotCallable, CallableObj, SimpleDC, WithDefault, WithInitVar, EmptyDC, print_event, MyHooks, db_service, \
+    _str_annotated_func, _with_args_only
 
 
 # util/coll工具测试
@@ -731,8 +732,8 @@ class TestDatatime(unittest.TestCase):
         with self.subTest("init_custom"):
             captured = []
 
-            def pf(elapsed, item):
-                captured.append((elapsed, item))
+            def pf(task, item):
+                captured.append((task.elapsed, item))
             sw = temporal.StopWatch(keep_history=True, print_func=pf)
             self.assertTrue(sw._keep_history)
             self.assertIs(sw._print_func, pf)
@@ -768,8 +769,8 @@ class TestDatatime(unittest.TestCase):
             ret = sw.stop()
             self.assertIs(ret, sw)
             self.assertFalse(sw.is_running())
-            self.assertGreaterEqual(sw.last_elapsed, 10)
-            self.assertEqual(sw.total, sw.last_elapsed)
+            self.assertGreaterEqual(sw.last_task.elapsed, 10)
+            self.assertEqual(sw.total, sw.last_task.elapsed)
         # 测试 stop 方法在计时器未启动时抛出 RuntimeError
         with self.subTest("stop_not_running_raises"):
             sw = temporal.StopWatch()
@@ -780,8 +781,8 @@ class TestDatatime(unittest.TestCase):
         with self.subTest("stop_print_func_callback"):
             captured = []
 
-            def pf(elapsed, item):
-                captured.append((elapsed, item))
+            def pf(task, item):
+                captured.append((task.elapsed, item))
             sw = temporal.StopWatch(print_func=pf)
             sw.start()
             time.sleep(0.01)
@@ -799,7 +800,7 @@ class TestDatatime(unittest.TestCase):
             self.assertEqual(len(sw.history), 1)
             ret = sw.reset()
             self.assertIs(ret, sw)
-            self.assertEqual(sw.last_elapsed, 0)
+            self.assertEqual(sw.last_task.elapsed, -1)
             self.assertEqual(sw.total, 0)
             self.assertEqual(sw.history, [])
             self.assertFalse(sw.is_running())
@@ -821,7 +822,7 @@ class TestDatatime(unittest.TestCase):
         with self.subTest("accept_passed_to_print_func"):
             captured = []
 
-            def pf(elapsed, item):
+            def pf(task, item):
                 captured.append(item)
             sw = temporal.StopWatch(print_func=pf)
             sw.accept({"key": "value"})
@@ -841,16 +842,16 @@ class TestDatatime(unittest.TestCase):
         # 测试 last_elapsed 属性记录最近一次 stop 的耗时
         with self.subTest("last_elapsed"):
             sw = temporal.StopWatch()
-            self.assertEqual(sw.last_elapsed, 0)
+            self.assertEqual(sw.last_task.elapsed, -1)
             sw.start()
             time.sleep(0.02)
             sw.stop()
-            first = sw.last_elapsed
+            first = sw.last_task.elapsed
             self.assertGreaterEqual(first, 20)
             sw.start()
             time.sleep(0.01)
             sw.stop()
-            second = sw.last_elapsed
+            second = sw.last_task.elapsed
             self.assertGreaterEqual(second, 10)
             self.assertLess(second, first + 10)
         # 测试 current_elapsed 属性返回运行中的当前已耗时，未运行返回 -1
@@ -875,7 +876,7 @@ class TestDatatime(unittest.TestCase):
             time.sleep(0.01)
             sw.stop()
             self.assertGreaterEqual(sw.total, first_total + 10)
-            self.assertEqual(sw.total, first_total + sw.last_elapsed)
+            self.assertEqual(sw.total, first_total + sw.last_task.elapsed)
         # 测试默认 keep_history=False 时 stop 后不保留历史记录
         with self.subTest("history_default_no_keep"):
             sw = temporal.StopWatch()
@@ -916,7 +917,7 @@ class TestDatatime(unittest.TestCase):
             with sw:
                 self.assertTrue(sw.is_running())
             self.assertFalse(sw.is_running())
-            self.assertGreaterEqual(sw.last_elapsed, 0)
+            self.assertGreaterEqual(sw.last_task.elapsed, 0)
         # 测试 __exit__ 方法在 with 块抛出异常时仍能停止计时
         with self.subTest("exit_exception_still_stops"):
             sw = temporal.StopWatch()
@@ -926,7 +927,7 @@ class TestDatatime(unittest.TestCase):
                     self.assertTrue(sw.is_running())
                     raise ValueError("test error")
             self.assertFalse(sw.is_running())
-            self.assertGreaterEqual(sw.last_elapsed, 0)
+            self.assertGreaterEqual(sw.last_task.elapsed, 0)
         # 测试 __exit__ 方法不抑制异常，异常会继续向上传播
         with self.subTest("exit_does_not_suppress_exception"):
             with self.assertRaises(RuntimeError):
@@ -1935,6 +1936,159 @@ class TestReflect(unittest.TestCase):
                 ...
             with self.assertRaises(NameError):
                 list(reflect.iter_arguments(bad_ann, 1, eval_str=True))
+
+    def test_get_parameters(self):
+        with self.subTest("函数_混合签名"):
+            params = reflect.get_parameters(_sample_func)
+            self.assertEqual(list(params.keys()), ["a", "b", "args", "c", "kwargs"])
+            self.assertEqual(params["a"].annotation, int)
+            self.assertEqual(params["b"].annotation, inspect.Parameter.empty)
+            self.assertEqual(params["args"].annotation, float)
+            self.assertEqual(params["args"].kind, inspect.Parameter.VAR_POSITIONAL)
+            self.assertEqual(params["c"].annotation, str)
+            self.assertEqual(params["c"].default, "default")
+            self.assertEqual(params["c"].kind, inspect.Parameter.KEYWORD_ONLY)
+            self.assertEqual(params["kwargs"].annotation, bool)
+            self.assertEqual(params["kwargs"].kind, inspect.Parameter.VAR_KEYWORD)
+
+        with self.subTest("函数_装饰器函数"):
+            params = reflect.get_parameters(db_service)
+            self.assertEqual(list(params.keys()), [])
+
+        with self.subTest("函数_事件监听函数"):
+            from piz_core.infra import BaseEvent
+
+            params = reflect.get_parameters(print_event)
+            self.assertEqual(list(params.keys()), ["event"])
+            self.assertEqual(params["event"].annotation, BaseEvent)
+
+        with self.subTest("dataclass_基本"):
+            params = reflect.get_parameters(SimpleDC)
+            self.assertEqual(list(params.keys()), ["name", "age"])
+
+        with self.subTest("dataclass_带默认值"):
+            params = reflect.get_parameters(WithDefault)
+            self.assertEqual(list(params.keys()), ["a", "b"])
+            self.assertEqual(params["b"].default, "default")
+
+        with self.subTest("dataclass_空"):
+            params = reflect.get_parameters(EmptyDC)
+            self.assertEqual(list(params.keys()), [])
+
+        with self.subTest("dataclass_InitVar"):
+            params = reflect.get_parameters(WithInitVar)
+            self.assertEqual(list(params.keys()), ["value", "temp"])
+            self.assertEqual(params["temp"].default, "ignored")
+
+        with self.subTest("dataclass_字符串注解字段"):
+            # User.address 字段是 "Address | None" 字符串注解
+            # inspect.signature(User) 返回 __init__ 签名，参数名和默认值可验证
+            params = reflect.get_parameters(User)
+            self.assertEqual(list(params.keys()), ["name", "age", "address"])
+            self.assertEqual(params["address"].default, None)
+
+        with self.subTest("普通类_基本"):
+            params = reflect.get_parameters(Sample)
+            self.assertEqual(list(params.keys()), ["name"])
+            self.assertEqual(params["name"].annotation, str)
+            self.assertEqual(params["name"].default, inspect.Parameter.empty)
+
+        with self.subTest("普通类_kwargs"):
+            params = reflect.get_parameters(KwargsClass)
+            self.assertEqual(list(params.keys()), ["kwargs"])
+            self.assertEqual(params["kwargs"].kind, inspect.Parameter.VAR_KEYWORD)
+
+        with self.subTest("普通类_必填参数"):
+            params = reflect.get_parameters(NeedRequired)
+            self.assertEqual(list(params.keys()), ["required"])
+            self.assertEqual(params["required"].annotation, str)
+            self.assertEqual(params["required"].default, inspect.Parameter.empty)
+
+        with self.subTest("实例方法"):
+            params = reflect.get_parameters(Sample.append)
+            self.assertEqual(list(params.keys()), ["self", "obj", "valid"])
+            self.assertEqual(params["obj"].annotation, object)
+            self.assertEqual(params["valid"].annotation, type)
+
+        with self.subTest("classmethod"):
+            # classmethod 对象需取 __func__ 才能看到原始签名（含 cls）
+            params = reflect.get_parameters(Sample.invoke.__func__)
+            self.assertEqual(list(params.keys()), ["cls", "count"])
+            self.assertEqual(params["count"].annotation, int)
+
+        with self.subTest("staticmethod"):
+            params = reflect.get_parameters(Sample.static_method)
+            self.assertEqual(list(params.keys()), [])
+
+        with self.subTest("异步实例方法"):
+            params = reflect.get_parameters(MyHooks.on_start)
+            self.assertEqual(list(params.keys()), ["self", "ctx"])
+
+        with self.subTest("可调用对象"):
+            params = reflect.get_parameters(CallableObj())
+            self.assertEqual(list(params.keys()), [])
+
+        with self.subTest("返回类型为只读映射"):
+            params = reflect.get_parameters(_sample_func)
+            self.assertIsInstance(params, types.MappingProxyType)
+            with self.assertRaises(TypeError):
+                params["extra"] = inspect.Parameter("extra", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+
+        with self.subTest("字符串注解_eval_str_true"):
+            params = reflect.get_parameters(_str_annotated_func, eval_str=True)
+            self.assertEqual(params["a"].annotation, int)
+            self.assertEqual(params["b"].annotation, str)
+
+        with self.subTest("字符串注解_eval_str_false"):
+            params = reflect.get_parameters(_str_annotated_func, eval_str=False)
+            self.assertEqual(params["a"].annotation, "int")
+            self.assertEqual(params["b"].annotation, "str")
+
+    def test_has_kwargs_param(self):
+        with self.subTest("无参数"):
+            self.assertFalse(reflect.has_kwargs_param(reflect.get_parameters(EmptyDC).values()))
+            self.assertFalse(reflect.has_kwargs_param(reflect.get_parameters(Sample.static_method).values()))
+
+        with self.subTest("仅位置参数"):
+            self.assertFalse(reflect.has_kwargs_param(reflect.get_parameters(Sample).values()))
+            self.assertFalse(reflect.has_kwargs_param(reflect.get_parameters(NeedRequired).values()))
+            self.assertFalse(reflect.has_kwargs_param(reflect.get_parameters(Item).values()))
+
+        with self.subTest("仅_args"):
+            self.assertFalse(reflect.has_kwargs_param(reflect.get_parameters(_with_args_only).values()))
+
+        with self.subTest("有_kwargs"):
+            self.assertTrue(reflect.has_kwargs_param(reflect.get_parameters(KwargsClass).values()))
+            self.assertTrue(reflect.has_kwargs_param(reflect.get_parameters(_sample_func).values()))
+            self.assertTrue(reflect.has_kwargs_param(reflect.get_parameters(BadKwargsInit).values()))
+
+        with self.subTest("同时有_args和_kwargs"):
+            self.assertTrue(reflect.has_kwargs_param(reflect.get_parameters(_sample_func).values()))
+
+        with self.subTest("空列表"):
+            self.assertFalse(reflect.has_kwargs_param([]))
+
+    def test_has_args_param(self):
+        with self.subTest("无参数"):
+            self.assertFalse(reflect.has_args_param(reflect.get_parameters(EmptyDC).values()))
+            self.assertFalse(reflect.has_args_param(reflect.get_parameters(Sample.static_method).values()))
+
+        with self.subTest("仅位置参数"):
+            self.assertFalse(reflect.has_args_param(reflect.get_parameters(Sample).values()))
+            self.assertFalse(reflect.has_args_param(reflect.get_parameters(NeedRequired).values()))
+
+        with self.subTest("仅_args"):
+            self.assertTrue(reflect.has_args_param(reflect.get_parameters(_with_args_only).values()))
+
+        with self.subTest("有_kwargs无_args"):
+            self.assertFalse(reflect.has_args_param(reflect.get_parameters(KwargsClass).values()))
+            self.assertFalse(reflect.has_args_param(reflect.get_parameters(BadKwargsInit).values()))
+
+        with self.subTest("同时有_args和_kwargs"):
+            self.assertTrue(reflect.has_args_param(reflect.get_parameters(_sample_func).values()))
+
+        with self.subTest("空列表"):
+            self.assertFalse(reflect.has_args_param([]))
 
     def test_get_return_annotation(self):
         def func1() -> int:

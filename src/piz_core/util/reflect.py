@@ -1,9 +1,10 @@
 """ 系统（system）处理工具
 
-:version: 0.3.260814
+:version: 0.3.260820
 """
 import inspect
-from typing import Callable, ParamSpec, TypeVar, Any, Iterator
+from types import MappingProxyType
+from typing import Callable, ParamSpec, TypeVar, Any, Iterator, Iterable
 
 from piz_core.deco import validate_types
 
@@ -88,11 +89,11 @@ def bind_arguments(func: Callable[P, T], /, *args: P.args, eval_str: bool = True
 
     :param func: 被检查的目标函数（可调用对象），仅限位置传参
     :param args: 转发给 func 的位置实参
-    :param eval_str: 是否将字符串形式的注解解析为真实类型对象，默认 True
-    :param partial: 是否采用宽松绑定方式
+    :param eval_str: 是否将字符串形式的类型注释解析为真实类型对象（默认True）
+    :param partial: 是否采用宽松绑定方式（默认False）
     :param kwargs: 转发给 func 的关键字实参
     """
-    # 获取函数签名（参数名、默认值、注解等）
+    # 获取函数签名（参数名、默认值、类型注释等）
     signature = inspect.signature(func, eval_str=eval_str)
     # 宽松绑定
     if partial:
@@ -110,23 +111,23 @@ def bind_arguments(func: Callable[P, T], /, *args: P.args, eval_str: bool = True
 def iter_arguments(func: Callable[P, T], /, *args: P.args, include_variadic: bool = False,
                    include_unannotated: bool = False, eval_str: bool = True, partial: bool = False, **kwargs: P.kwargs
                    ) -> Iterator[tuple[str, Any, Any, dict[str, Any]]]:
-    """ 按目标函数签名绑定一次调用的实参，逐个产出 (参数名, 类型注解, 参数值, 参数集)四元组。
+    """ 按目标函数签名绑定一次调用的实参，逐个产出 (参数名, 类型注释, 参数值, 参数集)四元组。
 
     - 未显式传入的参数以默认值绑定后同样产出
     - ``self``/``cls`` 始终跳过
     - 开启 ``include_variadic`` 后，``*args`` 绑定为 tuple、``**kwargs`` 绑定为 dict，
-      各自以整体形式产出一次，注解位为变长参数自身的注解（语义上作用于每个元素/值）
-    - 开启 ``include_unannotated`` 后，无注解参数同样产出，注解位为 ``inspect.Parameter.empty``
+      各自以整体形式产出一次，类型注释为变长参数自身的注释（语义上作用于每个元素/值）
+    - 开启 ``include_unannotated`` 后，无类型注释的参数同样产出，注释为 ``inspect.Parameter.empty``
 
     :param func: 被检查的目标函数（可调用对象），仅限位置传参
     :param args: 转发给 func 的位置实参
-    :param include_variadic: 是否产出 ``*args``/``**kwargs`` 变长参数，默认 False
-    :param include_unannotated: 是否产出无类型注解的参数，默认 False
-    :param eval_str: 是否将字符串形式的注解解析为真实类型对象，默认 True
+    :param include_variadic: 是否产出 ``*args``/``**kwargs`` 变长参数（默认False）
+    :param include_unannotated: 是否产出无类型注释的参数（默认False）
+    :param eval_str: 是否将字符串形式的类型注释解析为真实类型对象（默认True）
     :param partial: 是否采用宽松绑定方式
     :param kwargs: 转发给 func 的关键字实参
     :raises TypeError: 实参与 func 的签名不匹配时抛出
-    :raises NameError: ``eval_str=True`` 且注解中的名字无法解析时抛出
+    :raises NameError: ``eval_str=True`` 且类型注释中的名字无法解析时抛出
     :r
     """
     # 绑定参数
@@ -144,10 +145,31 @@ def iter_arguments(func: Callable[P, T], /, *args: P.args, include_variadic: boo
         yield name, annotation, value, arguments_dict
 
 @validate_types
+def get_parameters(obj: Any, /, *, eval_str: bool = True) -> MappingProxyType[str, inspect.Parameter]:
+    """ 获取函数签名的有序参数字典（只读视图）
+
+    :param obj: 被检查的对象，包括函数、类型、对象、描述符等（仅限位置传参）
+    :param eval_str: 是否将字符串形式的类型注释解析为真实类型对象（默认True）
+    """
+    return inspect.signature(obj, eval_str=eval_str).parameters
+
+@validate_types
+def has_kwargs_param(params: Iterable[inspect.Parameter]) -> bool:
+    """ 检查参数是否包含**kwargs
+    """
+    return any(i.kind is inspect.Parameter.VAR_KEYWORD for i in params)
+
+@validate_types
+def has_args_param(params: Iterable[inspect.Parameter]) -> bool:
+    """ 检查参数是否包含**args
+    """
+    return any(i.kind is inspect.Parameter.VAR_POSITIONAL for i in params)
+
+@validate_types
 def get_return_annotation(func: Callable[P, T], /, *, eval_str: bool = True) -> Any:
-    """ 获取函数返回注解
+    """ 获取函数的返回值类型
 
     :param func: 被检查的目标函数（可调用对象），仅限位置传参
-    :param eval_str: 是否将字符串形式的注解解析为真实类型对象，默认True
+    :param eval_str: 是否将字符串形式的类型注释解析为真实类型对象（默认True）
     """
     return inspect.signature(func, eval_str=eval_str).return_annotation
