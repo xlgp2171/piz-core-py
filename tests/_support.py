@@ -6,11 +6,11 @@ from typing import Annotated, Any
 from piz_core import util
 from piz_core.deco import inject, provide, component, validate_types, insert, select, update, delete
 from piz_core.deco.event import event_listener
-from piz_core.infra import setup_logging, LOG_VERBOSE_FORMAT, LogMode
+from piz_core.infra import setup_logging, LOG_VERBOSE_FORMAT
 from piz_core.infra.db import BaseMapper, SqlDatabase
 from piz_core.infra.event import BaseEvent, event_bus
 from piz_core.infra.ioc import Injected, Prop, environment
-from piz_core.setting import Settings
+
 
 # Settings.log_mode = LogMode.RECORD | LogMode.PUBLISH
 setup_logging("debug", logging.DEBUG,
@@ -287,6 +287,13 @@ class ModelMapper(BaseMapper[SqlDatabase], impl_name="sqlite_db"):
     @delete("DELETE FROM skl_model WHERE score < #{model.score} AND status IN (#{model.status})")
     def delete_model1(self, model: dict) -> int: ...
 
+def make_func(doc: str | None):
+    """辅助方法：动态创建带有指定 __doc__ 的函数"""
+    def _dummy():
+        pass
+    _dummy.__doc__ = doc
+    return _dummy
+
 class Foo:
     def __init__(self):
         self.x = 1
@@ -370,6 +377,15 @@ def print_event(event: BaseEvent):
 
 def _sample_func(a: int, b, *args: float, c: str = "default", **kwargs: bool):
     """混合签名：有注解 / 无注解 / 变长 / 带默认值的关键字参数"""
+    pass
+
+def _with_args_only(*args: float):
+    """仅 *args，用于测试 has_args_param"""
+    pass
+
+
+def _str_annotated_func(a: "int", b: "str"):
+    """字符串形式注解，用于测试 eval_str"""
     pass
 
 
