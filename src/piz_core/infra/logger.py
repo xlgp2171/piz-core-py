@@ -1,6 +1,6 @@
 """ 记录器组件
 
-:version: 0.3.260818
+:version: 0.3.260819
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import os
 import sys
 from enum import IntFlag
 from logging.handlers import RotatingFileHandler
-from typing import Callable, Final, Annotated, cast
+from typing import Callable, Final, Annotated, cast, Self
 
 from piz_core.const import SysTag, namespaced
 from piz_core.deco import validate_types
@@ -26,6 +26,8 @@ _LOG_BACKUP_COUNT: Final[int] = 5
 """ 日志默认备份数量（默认5） """
 _LOG_DIRECTORY: Final[str] = "logs"
 """ 日志默认目录 """
+_LOG_LEVEL = logging.DEBUG
+""" 日志默认级别 """
 LOG_SIMPLE_FORMAT: Final[str] = "%(asctime)s [%(levelname)s] %(message)s"
 """ 日志简略格式 """
 LOG_VERBOSE_FORMAT: Final[str] = "%(asctime)s [%(levelname)s] (%(name)s#%(funcName)s:%(lineno)d) %(message)s"
@@ -124,7 +126,7 @@ class _LogBaseHandler(logging.Handler):
         self._lpd.set_message(message := super().format(record))
         return message
 
-    def apply_level(self, level: int) -> "_LogBaseHandler":
+    def apply_level(self, level: int) -> Self:
         self.setLevel(level)
         return self
 
@@ -141,7 +143,7 @@ class _LogStreamHandler(logging.StreamHandler, _LogBaseHandler):
         _LogBaseHandler.__init__(self)
         self.set_name(namespaced("stream"))
 
-    def apply_default_format(self) -> "_LogStreamHandler":
+    def apply_default_format(self) -> Self:
         self.setFormatter(logging.Formatter(fmt=LOG_SIMPLE_FORMAT, datefmt=DATETIME_PATTERN))
         return self
 
@@ -210,10 +212,17 @@ class _LogRotatingFileHandler(RotatingFileHandler, _LogBaseHandler):
 _SYS_LOG_HANDLE: Final[_LogStreamHandler] = _LogStreamHandler().apply_default_format()
 """ 系统默认日志处理器 """
 
+def _set_logger_level(logger_levels: dict[str, int]):
+    """ 设置日志模块级别
+    """
+    for k, v in logger_levels.items():
+        logging.getLogger(k).setLevel(v)
+        print(f"{now_as_string()}[INFO]Set logger level,\tmodule: {k},\tlevel: {v}")
 
 @validate_types
 def setup_logging(file_name: str = "", level: int = logging.INFO, *, log_format: str = LOG_SIMPLE_FORMAT,
-                 console: bool = True, publish_func: Callable[[SysTag, str, str], None] | None = None,
+                 console: bool = True, logger_levels: dict[str, int] | None = None,
+                publish_func: Callable[[SysTag, str, str], None] | None = None,
                  handler_func: Callable[[list[logging.Handler]], None] | None = None, **kwargs):
     """ 配置日志系统
 
@@ -221,6 +230,7 @@ def setup_logging(file_name: str = "", level: int = logging.INFO, *, log_format:
     :param level: 日志级别
     :param log_format: 日志记录格式
     :param console: 是否输出到控制台（若为True，则装配 _LogStreamHandler）
+    :param logger_levels: 单独设置模块的级别（k为模块集合，v为级别）
     :param publish_func: 发布函数（若不为None，则装配 _LogPublishHandler）
     :param handler_func: 处理器回调函数
     :param kwargs: _LogRotatingFileHandler相关参数
@@ -244,7 +254,10 @@ def setup_logging(file_name: str = "", level: int = logging.INFO, *, log_format:
     # 处理日志处理器的函数
     if handler_func is not None:
         handler_func(handlers)
-    logging.basicConfig(format=log_format, datefmt=DATETIME_PATTERN, level=logging.DEBUG, handlers=handlers, force=True)
+    logging.basicConfig(format=log_format, datefmt=DATETIME_PATTERN, level=_LOG_LEVEL, handlers=handlers, force=True)
+    # 单独设置logger的level
+    if logger_levels:
+        _set_logger_level(logger_levels)
     # 输出启动内容
     print(f"{now_as_string()}[INFO]logger initialized: {'; '.join([i.get_name() for i in handlers])}")
 
