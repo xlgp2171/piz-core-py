@@ -30,7 +30,7 @@ import piz_core.util.system as system
 from _support import Sample, DICT_DATA_A, DICT_DATA_B, _sample_func, User, Address, PlainObj, Item, MyDict, \
     KwargsClass, FilteredClass, ReadOnlyProp, BadKwargsInit, NeedRequired, BadFilteredInit, NoMatchParams, \
     NotCallable, CallableObj, SimpleDC, WithDefault, WithInitVar, EmptyDC, print_event, MyHooks, db_service, \
-    _str_annotated_func, _with_args_only
+    _str_annotated_func, _with_args_only, make_func
 
 
 # util/coll工具测试
@@ -2118,6 +2118,66 @@ class TestReflect(unittest.TestCase):
             pass
         with self.assertRaises(NameError):
             reflect.get_return_annotation(bad_func, eval_str=True)
+
+    def test_get_doc_description(self):
+        # 测试 get_doc_description：提取函数描述，不含参数字段
+        # (docstring, expected)
+        cases = [
+
+            (None, ""),
+            ("", ""),
+            ("    ", ""),
+            ("获取用户信息", "获取用户信息"),
+            ("获取用户信息\n\n:param user_id: 用户ID\n:return: 用户信息", "获取用户信息"),
+            ("获取用户信息。\n支持多种查询方式。\n\n:param user_id: 用户ID", "获取用户信息。\n支持多种查询方式。"),
+            ("获取用户信息\n:param user_id: 用户ID\n:raises ValueError: 参数错误", "获取用户信息"),
+            (":param user_id: 用户ID\n:return: 用户信息", ""),
+            ("  获取用户信息  \n\n:param user_id: 用户ID", "获取用户信息"),
+        ]
+        for doc, expected in cases:
+            with self.subTest(doc=doc):
+                result = reflect.get_func_doc(make_func(doc))
+                self.assertEqual(result, expected)
+
+    def test_get_field_doc(self):
+        # 测试 get_field_doc：提取指定参数 / 异常 / 返回值的注释
+        # (docstring, name, kind, expected)
+        cases = [
+            # 无文档或空文档
+            (None, "user_id", "param", ""),
+            ("", "user_id", "param", ""),
+            # 查找不存在的参数
+            ("获取用户信息\n:param name: 用户名", "user_id", "param", ""),
+            # 参数存在，单行描述
+            ("获取用户信息\n:param user_id: 用户唯一标识", "user_id", "param", "用户唯一标识"),
+            # 参数存在，多行续写（遇下一个字段停止）
+            ("获取用户信息\n:param user_id: 用户唯一标识\n可以是数字或字符串\n:param name: 用户名",
+             "user_id", "param", "用户唯一标识 可以是数字或字符串"),
+            # 参数多行续写含空行（空行应被忽略）
+            ("获取用户信息\n:param user_id: 用户唯一标识\n\n可以是数字或字符串\n:param name: 用户名",
+             "user_id", "param", "用户唯一标识 可以是数字或字符串"),
+            # :return: 单行
+            ("获取用户信息\n:param user_id: 用户ID\n:return: 用户信息对象", "", "return", "用户信息对象"),
+            # :returns: 应被统一识别为 return
+            ("获取用户信息\n:param user_id: 用户ID\n:returns: 用户信息对象", "", "return", "用户信息对象"),
+            # return 多行续写
+            ("获取用户信息\n:return: 用户信息对象\n包含姓名和年龄\n字典格式", "", "return", "用户信息对象 包含姓名和年龄 字典格式"),
+            # :raises: 单行
+            ("获取用户信息\n:param user_id: 用户ID\n:raises ValueError: 用户ID为空\n:raises TypeError: 类型错误",
+             "ValueError", "raises", "用户ID为空"),
+            # :raises: 多行续写
+            ("获取用户信息\n:raises ValueError: 用户ID为空\n或格式不正确\n:return: 用户信息",
+             "ValueError", "raises", "用户ID为空 或格式不正确"),
+            # kind 不匹配（param 当 return 查）
+            ("获取用户信息\n:param user_id: 用户ID", "user_id", "return", ""),
+            # 多个同 kind 字段，取第一个匹配的 name
+            ("获取用户信息\n:param user_id: 用户ID\n:param name: 用户名", "user_id", "param", "用户ID"),
+        ]
+        for doc, name, kind, expected in cases:
+            with self.subTest(doc=doc, name=name, kind=kind):
+                func = make_func(doc)
+                result = reflect.get_field_doc(func, name, kind)
+                self.assertEqual(result, expected)
 
 
 # util/ser工具测试
