@@ -136,10 +136,10 @@ class ErrorCode(BaseEnum):
     P_441 = ("P441", "Prompt length exceeds limit,\tlength: {0},\tlimit: {1}{2}", "提示长度{0}超过限制{1}")
 
     # Business（业务逻辑、流程状态、业务规则冲突）
-    B000 = ("B000", "Business unknown error", "业务未知错误")
-    B300 = ("B300", "Business rule violated", "业务规则冲突")
-    B340 = ("B340", "Prompt content violation", "提示内容违规")
-    B341 = ("B341", "Prompt contains banned word,\tword: {0}{1}", "提示包含禁用词{0}")
+    B_000 = ("B000", "Business unknown error", "业务未知错误")
+    B_300 = ("B300", "Business rule violated", "业务规则冲突")
+    B_340 = ("B340", "Prompt content violation", "提示内容违规")
+    B_341 = ("B341", "Prompt contains banned word,\tword: {0}{1}", "提示包含禁用词{0}")
 
     # Data（数据库、缓存、数据一致性、持久层）
     D_000 = ("D000", "Data unknown error", "数据未知错误")
