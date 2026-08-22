@@ -1759,21 +1759,21 @@ class TestIdentity(unittest.TestCase):
 
     def test_next_func_id(self):
         # 普通函数应返回稳定的 id，多次调用结果一致
-        self.assertIsInstance(id1 := identity.next_func_id(print_event), int)
-        self.assertEqual(id1, identity.next_func_id(print_event))
+        self.assertIsInstance(id1 := identity.func_identity(print_event), int)
+        self.assertEqual(id1, identity.func_identity(print_event))
         # bound method 应返回稳定标识，不受 getattr 新对象影响
         # 同一实例的同一方法，不同方式获取，id 应相同
-        id1 = identity.next_func_id((hooks := MyHooks()).on_start)
-        self.assertEqual(id1, identity.next_func_id(hooks.on_start))
-        self.assertEqual(id1, identity.next_func_id(getattr(hooks, "on_start")))
+        id1 = identity.func_identity((hooks := MyHooks()).on_start)
+        self.assertEqual(id1, identity.func_identity(hooks.on_start))
+        self.assertEqual(id1, identity.func_identity(getattr(hooks, "on_start")))
         # 不同实例的同名方法应返回不同标识
         a, b = MyHooks(), MyHooks()
-        self.assertNotEqual(identity.next_func_id(a.on_start), identity.next_func_id(b.on_start))
+        self.assertNotEqual(identity.func_identity(a.on_start), identity.func_identity(b.on_start))
         # 同一实例的不同方法应返回不同标识
-        self.assertNotEqual(identity.next_func_id(hooks.on_start), identity.next_func_id(hooks.on_stop))
+        self.assertNotEqual(identity.func_identity(hooks.on_start), identity.func_identity(hooks.on_stop))
         # lambda 每次创建新对象，id 应不同
         a, b = lambda x: x, lambda x: x
-        self.assertNotEqual(identity.next_func_id(a), identity.next_func_id(b))
+        self.assertNotEqual(identity.func_identity(a), identity.func_identity(b))
 
 # util/reflect工具测试
 class TestReflect(unittest.TestCase):

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import threading
 import time
-import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Annotated

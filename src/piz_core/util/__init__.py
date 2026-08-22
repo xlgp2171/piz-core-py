@@ -23,7 +23,7 @@ from piz_core.util.fs import (
     is_directory, make_dirs, delete_path, write_file, write_temporary_file, list_paths, walk_paths, real_path)
 from piz_core.util.db import build_params, build_sql_and_params, map_row
 from piz_core.util.ser import read_object, dump_object, dump_json, dataclass_values, JsonEncoder
-from piz_core.util.ident import next_uuid, next_func_id
+from piz_core.util.ident import next_uuid, func_identity
 
 
 __all__ = [
@@ -44,7 +44,7 @@ __all__ = [
     "is_file", "is_directory", "make_dirs", "delete_path", "write_file", "write_temporary_file", "list_paths",
     "walk_paths", "real_path",
     # ident
-    "next_uuid", "next_func_id",
+    "next_uuid", "func_identity",
     # prim
     "default_string", "equals_ignore_case", "is_blank", "has_text", "contains_whitespace", "trim_all_whitespace",
     "startswith_ignore_case", "endswith_ignore_case", "substring_after", "capitalize", "uncapitalize", "decapitalize",

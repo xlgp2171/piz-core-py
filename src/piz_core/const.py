@@ -1,6 +1,6 @@
 """ 常量
 
-:version: 0.3.260816
+:version: 0.3.260820
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -9,7 +9,7 @@ from typing import Final
 
 NAMESPACE: Final[str] = "piz"
 """ 命名空间 """
-CORE_TAG: Final[str] = f"[core]"
+CORE_TAG: Final[str] = f"[{NAMESPACE}-core]"
 """ 项目标签 """
 
 
@@ -94,6 +94,7 @@ class ErrorCode(BaseEnum):
     S_222 = ("S222", "Task Not started", "未启动")
     S_230 = ("S230", "Type assertion failed", "类型断言失败")
     S_231 = ("S231", "Impl type mismatch,\texpected: {0},\tgot: {1}{2}", "实现类型不匹配，期望{0}实际{1}")
+    S_232 = ("S232", "Unsupported callable type,\tfunc: {0}", "不支持的callable类型{0}")
 
     # Parameter（请求参数、报文、接口契约、输入校验）
     P_000 = ("P000", "Parameter unknown error", "参数未知异常")
@@ -107,12 +108,16 @@ class ErrorCode(BaseEnum):
     P_110 = ("P110", "Factory function invalid", "工厂函数无效")
     P_111 = ("P111", "instance function invalid,\tinstance name: {0}", "实例{0}的实例函数无效")
     P_200 = ("P200", "Parameter format invalid", "参数格式错误")
-    P_210 = ("P210", "Parameter annotation metadata invalid", "参数注解元数据非法")
+    P_210 = ("P210", "Parameter annotation metadata invalid", "参数类型注释元数据非法")
     P_211 = ("P211", "Missing Qualifier/Prop in Annotated metadata,\tfunc: {0},\targs: {1}",
              "方法{0}参数{1}的Annotated注解缺少Qualifier定义")
+    P_212 = ("P212", "Literal missing enum values{0}", "方法参数{0}的Literal缺少枚举值")
     P_300 = ("P300", "Parameter mismatch", "参数不匹配")
     P_310 = ("P310", "Type mismatch,\texpected: {0},\tgot: {1}{2}", "类型不匹配为期望{0}实际{1}")
     P_311 = ("P311", "Unsupported type for row conversion,\ttype: {0}{1}", "不支持的行转换类型：{0}")
+    P_312 = ("P312", "Only Optional[type] is supported for union type{0}",
+             "方法参数{0}不支持的联合类型，仅允许Optional[type]")
+    P_313 = ("P313", "Unsupported type annotation,\tannotation: {0}{1}", "方法参数{1}不支持的类型注解{0}")
     P_320 = ("P320", "Value mismatch,\texpected: {0},\tgot: {1}{2}", "值不匹配为期望{0}实际{1}")
     P_321 = ("P321", "Unsupported enum value,\tvalue: {0},\ttype: {1}{2}", "不支持的枚举值{0}和类型{1}")
     P_330 = ("P330", "Parameter structure mismatch", "参数结构不匹配")
@@ -129,6 +134,12 @@ class ErrorCode(BaseEnum):
     P_431 = ("P431", "Bit width overflow,\tfield: {0},\tlimit: {1}{2}", "字段{0}位宽溢出，限制{1}位")
     P_440 = ("P440", "Parameter length exceeded", "参数长度超出限制")
     P_441 = ("P441", "Prompt length exceeds limit,\tlength: {0},\tlimit: {1}{2}", "提示长度{0}超过限制{1}")
+
+    # Business（业务逻辑、流程状态、业务规则冲突）
+    B000 = ("B000", "Business unknown error", "业务未知错误")
+    B300 = ("B300", "Business rule violated", "业务规则冲突")
+    B340 = ("B340", "Prompt content violation", "提示内容违规")
+    B341 = ("B341", "Prompt contains banned word,\tword: {0}{1}", "提示包含禁用词{0}")
 
     # Data（数据库、缓存、数据一致性、持久层）
     D_000 = ("D000", "Data unknown error", "数据未知错误")
@@ -149,7 +160,6 @@ class ErrorCode(BaseEnum):
     C_311 = ("C311", "Attribute is read-only,\tattr: {0},\tclass: {1}", "属性{0}为只读")
     C_500 = ("C500", "Config file load failed", "配置文件加载失败")
     C_501 = ("C501", "Config file not found,\tpath: {0}", "配置文件未找到，路径: {0}")
-
 
 
     @classmethod
