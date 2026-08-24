@@ -1,9 +1,9 @@
 """ 验证装饰器
 
-:version: 0.3.260818
+:version: 0.3.260824
 """
 from functools import wraps
-from typing import TypeVar, Callable, Any, overload, cast
+from typing import TypeVar, Callable, Any, overload, cast, ParamSpec
 
 from piz_core.setting import Settings
 
@@ -28,7 +28,7 @@ def validate_types(target_func: F | None = None, /, *, strict: bool = True) -> C
     def _decorator(func: F) -> F:
         # 保留原函数的元数据装饰器
         @wraps(func)
-        def _wrapper(*args, **kwargs) -> F:
+        def _wrapper(*args: Any, **kwargs: Any) -> Any:
             # 全局开关
             if Settings.validate_types_enabled:
                 from piz_core.util import iter_arguments, validate_type, validate_constraint, get_func_path

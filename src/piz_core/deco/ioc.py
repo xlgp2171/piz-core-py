@@ -1,10 +1,10 @@
 """ 依赖注入装饰器
 
-:version: 0.3.260814
+:version: 0.3.260824
 """
 import inspect
 from functools import wraps
-from typing import TypeVar, ParamSpec, Callable, get_args, Any, Sequence
+from typing import TypeVar, ParamSpec, Callable, get_args, Any, Sequence, cast
 
 from piz_core.const import NAMESPACE, ErrorCode
 from piz_core.infra.event import register_hook
@@ -14,9 +14,10 @@ from piz_core.infra.ioc import Qualifier, container, Prop, trigger_hooks, inject
 P = ParamSpec("P")
 # 捕获返回值类型
 T = TypeVar("T")
+F = TypeVar("F", bound=Callable[..., Any])
 
 
-def inject(target_func: Callable[P, T]) -> Callable[P, T]:
+def inject(target_func: F) -> F:
     """ 基于依赖注入实现实例注入的装饰器
 
     :raises ValueError: 参数未按Annotated规范定义；名称或类型未匹配到任何实例，或两者均未提供
@@ -26,7 +27,7 @@ def inject(target_func: Callable[P, T]) -> Callable[P, T]:
     from piz_core.util import iter_arguments
     # 保留原函数的元数据装饰器
     @wraps(target_func)
-    def _wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+    def _wrapper(*args: Any, **kwargs: Any) -> Any:
         resolved_dict = {}
         # 处理每个参数（包括未定义类型的参数）
         for _name, annotation, _value, arguments in iter_arguments(
@@ -67,7 +68,7 @@ def inject(target_func: Callable[P, T]) -> Callable[P, T]:
         return target_func(*args, **{**kwargs, **resolved_dict})
     # 标记依赖
     _wrapper.__inject = NAMESPACE
-    return _wrapper
+    return cast(F, _wrapper)
 
 def _try_resolve(instance_type: type | None, instance_name: str, value: Any) -> Any:
     """ 尝试获取实例
