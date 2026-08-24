@@ -1,14 +1,13 @@
 """ 集合（collection）处理工具
 
-:version: 0.3.260813
+:version: 0.3.260824
 """
 import random
 from typing import Callable, Any, Mapping, Sequence, TypeVar
 
 from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
-from piz_core.util.valid import is_param_object
-
+from piz_core.util.valid import is_param_object, BaseConstraint
 
 T = TypeVar("T")
 _MISSING = object()
@@ -87,12 +86,15 @@ def deep_get(value: Any, *keys: str, default: Any = None, ignore_errors: bool = 
     return value
 
 @validate_types
-def get_nested(value: Mapping | None, *keys: str, expected: type | None = None, default: Any = None) -> Any:
+def get_nested(
+        value: Mapping | None, *keys: str, expected: type | BaseConstraint | None = None, default: Any = None) -> Any:
     """ 从源字典中获取指定键路径的值，并验证其类型
+
+    - 期望类型支持BaseConstraint实例和type
 
     :param value: 源字典
     :param keys: 键路径（支持多级嵌套）
-    :param expected: 期望的返回值类型（默认None）
+    :param expected: 期望的返回值类型或期望的约束（默认None）
     :param default: 键不存在或类型不匹配时返回的默认值（默认None）
     """
     if not value or not keys:
@@ -101,7 +103,22 @@ def get_nested(value: Mapping | None, *keys: str, expected: type | None = None, 
         v = value.get(keys[0], default)
     else:
         v = get_nested_as_dict(value, *keys[:-1]).get(keys[-1], default)
-    return default if expected and not isinstance(v, expected) else v
+    # 若期望有值
+    if expected is not None:
+        # 期望类型匹配
+        if isinstance(expected, type) and isinstance(v, expected):
+            return v
+        # 期望约束匹配
+        elif isinstance(expected, BaseConstraint):
+            try:
+                expected.verify({"target": v}, "target")
+                return v
+            except (ValueError, TypeError):
+                pass
+        # 都不匹配则返回默认值
+        return default
+    else:
+        return v
 
 @validate_types
 def get_nested_as_dict(value: Mapping | None, *keys: str) -> dict:
@@ -171,15 +188,15 @@ def sequence_merge(
     :param key_func: 去重函数（None: 不去重; id: 复杂类型; (lambda x:x): 简单类型）
     """
     result: list[T] = []
-    unique: set = set()
+    seen: set = set()
 
     for seq in (value, extra):
         if seq is None:
             continue
         for i in seq:
             if key_func is not None:
-                if (k := key_func(i)) in unique:
+                if (key := key_func(i)) in seen:
                     continue
-                unique.add(k)
+                seen.add(key)
             result.append(i)
     return result
