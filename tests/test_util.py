@@ -26,6 +26,7 @@ import piz_core.util.prim as primitive
 import piz_core.util.reflect as reflect
 import piz_core.util.ser as serialization
 import piz_core.util.system as system
+from piz_core.util.valid import NonNegative, Range
 
 from _support import Sample, DICT_DATA_A, DICT_DATA_B, _sample_func, User, Address, PlainObj, Item, MyDict, \
     KwargsClass, FilteredClass, ReadOnlyProp, BadKwargsInit, NeedRequired, BadFilteredInit, NoMatchParams, \
@@ -199,6 +200,12 @@ class TestCollection(unittest.TestCase):
         # 单级键
         self.assertEqual(collection.get_nested(
             {"key": "val"}, "key", expected=str, default="default"), "val")
+        self.assertEqual(collection.get_nested(
+            {"key": 1}, "key", expected=NonNegative(), default=-1), 1)
+        self.assertEqual(collection.get_nested(
+            {"key": -1}, "key", expected=NonNegative(), default=1), 1)
+        self.assertEqual(collection.get_nested(
+            {"key": 25}, "key", expected=Range(min_value=-1, max_value=1), default=0), 0)
 
     def test_get_nested_as_dict(self):
         # 正常多级嵌套

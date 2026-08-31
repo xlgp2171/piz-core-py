@@ -1,9 +1,9 @@
 """ 系统（system）处理工具
 
-:version: 0.3.260820
+:version: 0.3.260825
 """
 import re
-from inspect import signature, Parameter, Signature, ismethod, getdoc
+from inspect import signature, Parameter, Signature, ismethod, getdoc, getmro
 from types import MappingProxyType
 from typing import Callable, ParamSpec, TypeVar, Any, Iterator, Iterable, Literal
 
@@ -91,6 +91,28 @@ def method_kind(func: Callable) -> tuple[bool, bool]:
     # 剥掉 "outer.<locals>." 前缀：局部类方法 "f.<locals>.C.m" 仍是类成员，
     # 而局部函数 "f.<locals>.inner" 剥完后不含 '.'，正确判为模块级
     return (False, False) if '.' not in qualname.split('<locals>.')[-1] else (False, True)
+
+@validate_types
+def iter_members(instance: T, *hook_funcs: Callable[[T, str, Any], None]):
+    """ 扫描实例所有标记的方法并按函数处理（沿 MRO 覆盖父类）
+
+    :param instance: 实例
+    :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
+    """
+    if not hook_funcs:
+        return
+    seen = set()
+    # 扫描实例的所有MRO（包括父类）
+    for klass in getmro(type(instance)):
+        # 遍历对应类的所有成员（若重写方法也会被再次调用）
+        for member_name, member in list(vars(klass).items()):
+            # 跳过"__xx__"的方法，重写的方法调用也跳过
+            if (member_name.startswith("__") and member_name.endswith("__")) or member_name in seen:
+                continue
+            seen.add(member_name)
+            # 依次调用每个函数
+            for func in hook_funcs:
+                func(instance, member_name, member)
 
 # 这个函数不能使用@validate_types
 def bind_arguments(func: Callable[P, T], /, *args: P.args, eval_str: bool = True, partial: bool = False,
@@ -189,13 +211,13 @@ def iter_parameters(obj: Any, /, include_variadic: bool = False, include_unannot
 def has_kwargs_param(params: Iterable[Parameter]) -> bool:
     """ 检查参数是否包含**kwargs
     """
-    return any(i.kind is Parameter.VAR_KEYWORD for i in params)
+    return any(param.kind is Parameter.VAR_KEYWORD for param in params)
 
 @validate_types
 def has_args_param(params: Iterable[Parameter]) -> bool:
     """ 检查参数是否包含**args
     """
-    return any(i.kind is Parameter.VAR_POSITIONAL for i in params)
+    return any(param.kind is Parameter.VAR_POSITIONAL for param in params)
 
 @validate_types
 def get_return_annotation(func: Callable[P, T], /, *, eval_str: bool = True) -> Any:
@@ -218,7 +240,7 @@ def get_func_doc(func: Callable) -> str:
     return default_string(doc[: matched.start()] if matched else doc, strip=True)
 
 @validate_types
-def get_field_doc(func: Callable, name: str, kind: Literal["param", "raises", "return"]) -> str:
+def get_field_doc(func: Callable, name: str, kind: Literal["param", "raises", "return"] = "param") -> str:
     """获取指定参数或异常的注释（支持注释换行续写）
 
     :param func: 函数对象
