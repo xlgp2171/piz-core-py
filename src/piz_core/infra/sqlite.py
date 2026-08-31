@@ -8,7 +8,7 @@ import contextvars
 import logging
 import sqlite3
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any, Iterator, Self
 
 from piz_core.const import CORE_TAG, ErrorCode, namespaced, SysTag
 from piz_core.deco import validate_types
@@ -202,7 +202,7 @@ class SqliteDatabase(SqlDatabase):
 
         :param sql: 执行的SQL（SELECT）
         :param params: 附加参数
-        :param default: 默认值（没有数据的情况下）
+        :param default: 默认值（没有数据的情况下）（默认None）
         """
         row = self.query_one(sql, params)
         return default if row is None else next(iter(row.values()))
@@ -240,7 +240,7 @@ class SqliteDatabase(SqlDatabase):
         logger.info(LogPayload.encode(
             SysTag.SYSTEM, f"{CORE_TAG}Database closed,\tsource: sqlite3,\tpath: {self._path}"))
 
-    def __enter__(self) -> "SqliteDatabase":
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *exc):

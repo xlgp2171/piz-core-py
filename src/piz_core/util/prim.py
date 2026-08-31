@@ -1,6 +1,6 @@
 """ 原始数据（primitive）处理工具
 
-:version: 0.2.260816
+:version: 0.2.260824
 """
 import math
 import random
@@ -58,19 +58,19 @@ def is_blank(value: str | None) -> bool:
 def has_text(value: str | None) -> bool:
     """ 验证字符串是否不包含空白字符
     """
-    return value is not None and any(not i.isspace() for i in value)
+    return value is not None and any(not word.isspace() for word in value)
 
 @validate_types
 def contains_whitespace(value: str) -> bool:
     """ 验证字符串是否包含空白字符
     """
-    return any(i.isspace() for i in value)
+    return any(word.isspace() for word in value)
 
 @validate_types
 def trim_all_whitespace(value: str) -> str:
     """ 清除字符串中所有的空白字符
     """
-    return "".join([i for i in value if not i.isspace()])
+    return "".join([word for word in value if not word.isspace()])
 
 @validate_types
 def startswith_ignore_case(value: str | None, prefix: str | None, start: Annotated[int | None, NonNegative()] = None,
@@ -147,10 +147,10 @@ def camel_to_underline(value: str) -> str:
         return _EMPTY
     s = ""
 
-    for n, i in enumerate(default_string(value, strip=True)):
-        if i.isupper() and n > 0:
+    for n, word in enumerate(default_string(value, strip=True)):
+        if word.isupper() and n > 0:
             s += _UNDERLINE
-        s += i.lower()
+        s += word.lower()
     return s
 
 @validate_types
@@ -161,14 +161,14 @@ def underline_to_camel(value: str) -> str:
         return _EMPTY
     s, upper = "", True
 
-    for n, i in enumerate(default_string(value, strip=True).lower()):
+    for n, word in enumerate(default_string(value, strip=True).lower()):
         if upper:
-            s += i.upper()
+            s += word.upper()
             upper = False
-        elif i == _UNDERLINE:
+        elif word == _UNDERLINE:
             upper = True
         else:
-            s += i
+            s += word
     return s
 
 @validate_types

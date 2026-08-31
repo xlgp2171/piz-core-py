@@ -1,6 +1,6 @@
 """ 数据操作装饰器
 
-:version: 0.3.260807
+:version: 0.3.260824
 """
 from typing import Callable
 
@@ -14,14 +14,14 @@ def select(sql: str, /, *, many: bool | None = None, res_type: type = dict):
     :param many: 返回多条还是单条（若为None时会自动通过返回类型判断）
     :param res_type: 返回类型（若返回list，还是写数据类型，即list[X]那个X）（单个简单数据int,float,str,bool,datetime直接返回）
     """
-    def _decorator(func: Callable):
+    def _decorator(func: Callable) -> Callable:
         from piz_core.util import get_return_annotation, is_expected_annotation
         # 若many没有设置则自动判断（list或tuple为True）
         annotation = get_return_annotation(func)
         _many = (is_expected_annotation(annotation, list) or is_expected_annotation(
             annotation, tuple)) if many is None else many
         # 标记SQL语句操作（SQL操作使用SqlStatement）
-        func.__db_statement = SqlStatement(sql=sql, op=DbOp.SELECT, many=_many, res_type=res_type, executor=SqlExecutor)
+        func._db_statement = SqlStatement(sql=sql, op=DbOp.SELECT, many=_many, res_type=res_type, executor=SqlExecutor)
         return func
     return _decorator
 
@@ -30,7 +30,7 @@ def _sql_decorator(sql: str, op: DbOp):
     """
     def _decorator(func: Callable):
         # 标记SQL语句操作（SQL操作使用SqlStatement）
-        func.__db_statement = SqlStatement(sql=sql, op=op, many=False, res_type=dict, executor=SqlExecutor)
+        func._db_statement = SqlStatement(sql=sql, op=op, many=False, res_type=dict, executor=SqlExecutor)
         return func
     return _decorator
 

@@ -1,11 +1,12 @@
 """ 验证（validate）处理工具
 
-:version: 0.2.260814
+:version: 0.2.260824
 """
-import inspect
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field, is_dataclass
+from inspect import Signature
 from types import UnionType
 from typing import Any, get_origin, Union, get_args, Literal, Annotated, Mapping, TypeVar, Sequence
 
@@ -24,7 +25,7 @@ class BaseConstraint(ABC):
         :param name: 字段名称
         :param error_hint: 验证失败的附加消息
         """
-        from piz_core.util import method_unavailable_exception
+        from piz_core.util.system import method_unavailable_exception
 
         raise method_unavailable_exception()
 
@@ -46,7 +47,7 @@ class BaseConstraint(ABC):
             if type(value) in (int, float):
                 return value
             else:
-                from piz_core.util.system import get_class_path
+                from piz_core.util.reflect import get_class_path
                 # 类型不匹配
                 raise TypeError(ErrorCode.P_310.format_message(
                     "int; float", get_class_path(value), f",\targs: {name}{error_hint}"))
@@ -231,7 +232,7 @@ def _check_type(value: object, expected: type, *, strict: bool) -> bool:
         # 若满足复合类型 Union / UnionType
         if (origin := get_origin(expected)) is Union or origin is UnionType:
             # 任意值匹配类型即可通过
-            return any(_check_type(value, i, strict=strict) for i in get_args(expected))
+            return any(_check_type(value, element, strict=strict) for element in get_args(expected))
         # 若是无复合类型或参数
         if not (args := get_args(expected)):
             try:
@@ -277,7 +278,7 @@ def _check_type_strictly(value: Any, origin: Any | None, args: tuple[Any, ...]) 
     elif (origin is list and isinstance(value, list)) or (
             origin is set and isinstance(value, set)):
         # 所有参数都判断
-        return all(_check_type(i, args[0], strict=True) for i in value)
+        return all(_check_type(element, args[0], strict=True) for element in value)
     # 若是字典带泛型
     elif (origin is dict or (isinstance(origin, type) and issubclass(origin, Mapping))) and isinstance(value, Mapping):
         # 所有参数都判断
@@ -336,16 +337,16 @@ def validate_constraint(value: str, annotation: Any, arguments: dict[str, Any], 
 def is_expected_annotation(annotation: Any, expected: type) -> bool:
     """ 是否为期望类型
 
-    :param annotation: 注解
+    :param annotation: 注释类型
     :param expected: 期望类型
     """
-    # 没写类型注解
-    if annotation is inspect.Signature.empty:
+    # 没写类型注释
+    if annotation is Signature.empty:
         return False
     # 传入的是None值
     if annotation is None:
         annotation = type(None)
-    # 注解本身就是list或其子类
+    # 类型注释本身就是list或其子类
     if isinstance(annotation, type):
         return _safe_is_subclass(annotation, expected)
     # 如存在泛型

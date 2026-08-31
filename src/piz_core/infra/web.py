@@ -106,7 +106,7 @@ class _HttpClient:
             return None, headers
         elif isinstance(data, dict):
             # 若未设置请求头则默认设置表单类型头
-            if any(i.lower() == "content-type" for i in headers):
+            if any(header.lower() == "content-type" for header in headers):
                 headers["Content-Type"] = "application/x-www-form-urlencoded"
             return urlencode(data, doseq=True).encode("utf-8"), headers
         elif isinstance(data, str):
@@ -154,7 +154,6 @@ class _HttpClient:
             # 4xx或5xx不抛异常，正常返回Response结构体
             charset = e.headers.get_content_charset() or "utf-8" if e.headers else "utf-8"
             text = (content := e.read()).decode(charset, errors="replace")
-            # NOTE(xlgp2171): 能直接判断类型，可忽略IDE警告
             return Response(status_code=e.code, reason=e.reason, headers=e.headers or HTTPMessage(),
                             text=text, content=content, url=e.url)
         except URLError as e:

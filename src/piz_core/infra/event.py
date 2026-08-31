@@ -1,6 +1,6 @@
 """ 事件监听发布组件
 
-:version: 0.3.260814
+:version: 0.3.260824
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class BaseEvent:
     """ 基础事件
     """
     # 事件时间戳
-    timestamp: int = field(default_factory=lambda: current_time_millis(), init=False)
+    timestamp: int = field(default_factory=current_time_millis, init=False)
 
     def __str__(self):
         return dump_json(asdict(self))
@@ -114,12 +114,12 @@ def register_hook(instance: Any, member_name: str, member: Any):
     :param member: 实例成员（和getattr(instance, member_name)有区别）
     """
     # 若为@event_listener标记则将方法注册
-    if getattr(member, "__event_listener", None) == NAMESPACE:
+    if getattr(member, "_event_listener", None) == NAMESPACE:
         func = getattr(instance, member_name)
         # 区分weakref的构造方式（WeakMethod为类方法）
         ref_func = weakref.WeakMethod(func) if hasattr(func, "__self__") else weakref.ref(func)
         # 将方法注入每个事件（采用弱引用方便释放）
-        for i in func.__event_type:
+        for i in func._event_type:
             event_bus.register(i, ref_func)
 
 

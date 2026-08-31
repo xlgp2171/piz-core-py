@@ -8,7 +8,8 @@ from typing import TypeVar, ParamSpec, Callable, get_args, Any, Sequence, cast
 
 from piz_core.const import NAMESPACE, ErrorCode
 from piz_core.infra.event import register_hook
-from piz_core.infra.ioc import Qualifier, container, Prop, trigger_hooks, inject_hook
+from piz_core.infra.ioc import Qualifier, container, Prop, inject_hook
+
 
 # 捕获任意参数签名
 P = ParamSpec("P")
@@ -39,9 +40,9 @@ def inject(target_func: F) -> F:
             if hasattr(annotation, '__metadata__'):
                 real_type, *metadata = get_args(annotation)
                 # 尝试获取配置值
-                prop = next((i for i in metadata if isinstance(i, Prop)), None)
+                prop = next((element for element in metadata if isinstance(element, Prop)), None)
                 # 尝试获取定义值
-                qualifier = next((i for i in metadata if isinstance(i, Qualifier)), None)
+                qualifier = next((element for element in metadata if isinstance(element, Qualifier)), None)
                 # 若都未配置，则异常
                 if prop is None and qualifier is None:
                     from piz_core.util import get_func_path
@@ -67,7 +68,7 @@ def inject(target_func: F) -> F:
         # 回调参数（按key进行匹配）
         return target_func(*args, **{**kwargs, **resolved_dict})
     # 标记依赖
-    _wrapper.__inject = NAMESPACE
+    _wrapper._inject = NAMESPACE
     return cast(F, _wrapper)
 
 def _try_resolve(instance_type: type | None, instance_name: str, value: Any) -> Any:
@@ -156,7 +157,7 @@ def _assemble(instance: Any, hook_funcs: Sequence[Callable[[Any, str, Any], None
     :param instance: 实例
     :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
     """
-    from piz_core.util import sequence_merge
+    from piz_core.util import sequence_merge, iter_members
     # 去重后触发hooks（附加系统预设的hook）
-    trigger_hooks(
+    iter_members(
         instance, *sequence_merge([inject_hook, register_hook], hook_funcs, key_func=id))

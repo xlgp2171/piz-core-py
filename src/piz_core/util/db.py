@@ -29,8 +29,8 @@ def build_params(arguments: dict[str, Any], names: list[str]) -> list | tuple:
     :param arguments: 参数字典
     """
     # 若是唯一参数且类型为list或tuple则对每个元素提取参数值
-    if len(arguments) == 1 and isinstance(item := next(iter(arguments.values())), (list, tuple)):
-        return [tuple(deep_get(i, *name.split(".")) for name in names) for i in item]
+    if len(arguments) == 1 and isinstance(items := next(iter(arguments.values())), (list, tuple)):
+        return [tuple(deep_get(i, *name.split(".")) for name in names) for i in items]
     # 按照属性任意提取参数值
     return tuple(extract_value(arguments, name) for name in names)
 
@@ -47,7 +47,7 @@ def _to_row(item: Any, *, error_hint: str = "") -> tuple:
     if isinstance(item, (tuple, list)):
         return tuple(item)
     if is_dataclass(item):
-        return tuple(getattr(item, i.name) for i in fields(item))
+        return tuple(getattr(item, field.name) for field in fields(item))
     if isinstance(item, dict):
         return tuple(item.values())
     if is_param_object(item):
@@ -81,10 +81,10 @@ def build_sql_and_params(sql: str, arguments: dict[str, Any], *, error_hint: str
                 # 行数据为空
                 raise ValueError(ErrorCode.P_332.format_message(name, error_hint))
             # 若批量数据每行不一致
-            for i in rows:
-                if len(i) != len(rows[0]):
+            for row in rows:
+                if len(row) != len(rows[0]):
                     # 长度不一致
-                    raise ValueError(ErrorCode.P_331.format_message(len(rows[0]), len(i), name, error_hint))
+                    raise ValueError(ErrorCode.P_331.format_message(len(rows[0]), len(row), name, error_hint))
             return _PARAM_PATTERN.sub(",".join("?" * len(rows[0])), sql), rows
         # 若为按占位符名逐元素提取（VALUES(#{uid},#{age})）
         try:

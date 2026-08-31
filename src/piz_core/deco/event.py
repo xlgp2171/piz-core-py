@@ -1,6 +1,6 @@
 """ 事件监听装饰器
 
-:version: 0.2.260814
+:version: 0.2.260824
 """
 import weakref
 from typing import TypeVar, Callable
@@ -27,8 +27,8 @@ def event_listener(*event_types: type[T]):
         # 若是类定义方法
         if in_cls:
             # 标记事件类型
-            func.__event_listener = NAMESPACE
-            func.__event_type = event_types
+            func._event_listener = NAMESPACE
+            func._event_type = event_types
         else:
             for i in event_types:
                 # 直接按照默认是方法处理

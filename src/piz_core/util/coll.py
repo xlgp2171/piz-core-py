@@ -1,17 +1,17 @@
 """ 集合（collection）处理工具
 
-:version: 0.3.260824
+:version: 0.3.260827
 """
 import random
+from dataclasses import MISSING
 from typing import Callable, Any, Mapping, Sequence, TypeVar
 
 from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
 from piz_core.util.valid import is_param_object, BaseConstraint
 
+
 T = TypeVar("T")
-_MISSING = object()
-""" 哨兵对象 """
 
 
 @validate_types
@@ -22,7 +22,7 @@ def split_to_set(value: str, separator: str, process_func: Callable[[str], str] 
     :param separator: 分隔符
     :param process_func: 切分后的字符串处理函数
     """
-    return {process_func(i) if process_func is not None else i for i in value.split(separator)}
+    return {process_func(segment) if process_func is not None else segment for segment in value.split(separator)}
 
 @validate_types
 def shuffle(value: set | list) -> list:
@@ -63,31 +63,33 @@ def extract_value(value: dict[str, Any], name: str, *, error_hint: str = "") -> 
     raise ValueError(ErrorCode.P_101.format_message(name, error_hint))
 
 @validate_types
-def deep_get(value: Any, *keys: str, default: Any = None, ignore_errors: bool = False) -> Any:
+def deep_get(value: Any, *keys: str, default: Any = None,
+             default_factory: Any = MISSING, ignore_errors: bool = False) -> Any:
     """ 获取指定键路径的值（支持Mapping和对象）
 
     :param value: 字典或对象
     :param keys: 键路径（支持多级嵌套）
     :param default: 键不存在或属性不存在时返回的默认值（默认None）
+    :param default_factory: 默认值工厂（通常是类或者方法，如default_factory=dict）（默认MISSING）
     :param ignore_errors: 是否忽略获取时的异常（默认False）
     :raises KeyError: Mapping中没有找到对应的key异常
     :raises AttributeError: 对象中没有找到attr异常
     """
     if value is None or not keys:
-        return default
+        return default if default_factory is MISSING else default_factory()
     for key in keys:
         if isinstance(value, Mapping):
-            value = value.get(key, _MISSING) if ignore_errors else value[key]
+            value = value.get(key, MISSING) if ignore_errors else value[key]
         else:
-            value = getattr(value, key, _MISSING) if ignore_errors else getattr(value, key)
+            value = getattr(value, key, MISSING) if ignore_errors else getattr(value, key)
         # 若没有值则直接返回默认
-        if value is _MISSING:
-            return default
+        if value is MISSING:
+            return default if default_factory is MISSING else default_factory()
     return value
 
 @validate_types
-def get_nested(
-        value: Mapping | None, *keys: str, expected: type | BaseConstraint | None = None, default: Any = None) -> Any:
+def get_nested(value: Mapping | None, *keys: str, expected: type | BaseConstraint | None = None,
+               default: Any = None, default_factory: Any = MISSING) -> Any:
     """ 从源字典中获取指定键路径的值，并验证其类型
 
     - 期望类型支持BaseConstraint实例和type
@@ -96,13 +98,16 @@ def get_nested(
     :param keys: 键路径（支持多级嵌套）
     :param expected: 期望的返回值类型或期望的约束（默认None）
     :param default: 键不存在或类型不匹配时返回的默认值（默认None）
+    :param default_factory: 默认值工厂（通常是类或者方法，如default_factory=dict）（默认 _MISSING）
     """
+    _default = default if default_factory is MISSING else default_factory()
+
     if not value or not keys:
-        return default
+        return _default
     elif len(keys) == 1:
-        v = value.get(keys[0], default)
+        v = value.get(keys[0], _default)
     else:
-        v = get_nested_as_dict(value, *keys[:-1]).get(keys[-1], default)
+        v = get_nested_as_dict(value, *keys[:-1]).get(keys[-1], _default)
     # 若期望有值
     if expected is not None:
         # 期望类型匹配
@@ -116,7 +121,7 @@ def get_nested(
             except (ValueError, TypeError):
                 pass
         # 都不匹配则返回默认值
-        return default
+        return _default
     else:
         return v
 
@@ -193,10 +198,10 @@ def sequence_merge(
     for seq in (value, extra):
         if seq is None:
             continue
-        for i in seq:
+        for element in seq:
             if key_func is not None:
-                if (key := key_func(i)) in seen:
+                if (key := key_func(element)) in seen:
                     continue
                 seen.add(key)
-            result.append(i)
+            result.append(element)
     return result

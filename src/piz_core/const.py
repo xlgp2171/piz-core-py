@@ -1,6 +1,6 @@
 """ 常量
 
-:version: 0.3.260820
+:version: 0.3.260824
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -76,10 +76,10 @@ class SysTag(BaseEnum):
     def _missing_(cls, value: object):
         """ 使用 SysTag('DATA') 进行匹配否则返回 SysTag.ERROR
         """
-        for i in SysTag:
+        for tag in SysTag:
             # 尝试匹配code属性
-            if str(value) == i.code:
-                return i
+            if str(value) == tag.code:
+                return tag
         return cls.ERROR
 
 
@@ -111,7 +111,7 @@ class ErrorCode(BaseEnum):
     P_210 = ("P210", "Parameter annotation metadata invalid", "参数类型注释元数据非法")
     P_211 = ("P211", "Missing Qualifier/Prop in Annotated metadata,\tfunc: {0},\targs: {1}",
              "方法{0}参数{1}的Annotated注解缺少Qualifier定义")
-    P_212 = ("P212", "Literal missing enum values{0}", "方法参数{0}的Literal缺少枚举值")
+    P_212 = ("P212", "Missing enum values,\ttype: {0}{1}", "方法参数{1}的类型{0}缺少枚举值")
     P_300 = ("P300", "Parameter mismatch", "参数不匹配")
     P_310 = ("P310", "Type mismatch,\texpected: {0},\tgot: {1}{2}", "类型不匹配为期望{0}实际{1}")
     P_311 = ("P311", "Unsupported type for row conversion,\ttype: {0}{1}", "不支持的行转换类型：{0}")
@@ -147,6 +147,8 @@ class ErrorCode(BaseEnum):
     D_110 = ("D110", "No instance matched for type,\ttype: {0}", "类型{0}未匹配到任何实例")
     D_120 = ("D120", "Type matched multiple instances,\ttype: {0},\tnames: {1}", "类型{0}匹配到多个实例")
     D_130 = ("D130", "No instance resolved by type or name,\ttype: {0},\tname: {1}", "类型{0}或名称{1}未解析到实例")
+    D_140 = ("D140", "Named entry not found", "指定名称条目不存在")
+    D_141 = ("D141", "Skill not found,\tname: {0},\tavailable: {1}", "技能{0}不存在当前可用{1}")
     D_800 = ("D800", "Data backup failed", "数据备份失败")
     D_810 = ("D811", "Database backup failed,\tpath: {0}", "数据库备份失败，备份路径: {0}")
 
@@ -155,9 +157,16 @@ class ErrorCode(BaseEnum):
     N_110 = ("N110", "HTTP connection failed,\treason: {0},\turl: {1},\tmethod: {2}", "HTTP连接失败原因为{0}")
 
     # Config（配置缺失、格式错误、环境变量、配置中心）
+    C_000 = ("C000", "Config unknown error", "配置未知错误")
+    C_200 = ("C200", "Config format invalid", "配置格式错误")
+    C_210 = ("C210", "Config structure invalid", "配置结构非法")
+    C_211 = ("C211", "Config header mismatch,\texpected: {0},\tgot: {1}{2}", "配置头部不匹配，期望{0}，实际{1}{2}")
+    C_212 = ("C212", "Config block not closed,\texpected: {0}{1}", "配置块未闭合，期望{0}")
     C_300 = ("C300", "Config value illegal", "配置值非法")
     C_310 = ("C310", "Config property read-only", "配置属性只读")
     C_311 = ("C311", "Attribute is read-only,\tattr: {0},\tclass: {1}", "属性{0}为只读")
+    C_320 = ("C320", "Config field invalid", "配置字段非法")
+    C_321 = ("C321", "Invalid config field,\tallowed: {0}{1}", "配置字段不正确，只允许{0}{1}")
     C_500 = ("C500", "Config file load failed", "配置文件加载失败")
     C_501 = ("C501", "Config file not found,\tpath: {0}", "配置文件未找到，路径: {0}")
 
@@ -166,10 +175,10 @@ class ErrorCode(BaseEnum):
     def _missing_(cls, value: object):
         """ 使用 ErrorCode('DATA') 进行匹配否则返回 ErrorCode.S_000
         """
-        for i in ErrorCode:
+        for code in ErrorCode:
             # 尝试匹配code属性
-            if str(value) == i.code:
-                return i
+            if str(value) == code.code:
+                return code
         return cls.S_000
 
 def namespaced(key: str) -> str:

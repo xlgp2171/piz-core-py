@@ -1,6 +1,6 @@
 """ Sqlite3组件
 
-:version: 0.3.260814
+:version: 0.3.260824
 """
 from __future__ import annotations
 
@@ -103,7 +103,7 @@ class MapperMeta(type):
         # 遍历所有成员
         for member_name, member in ns.items():
             # 若有标记
-            if stmt := getattr(member, "__db_statement", None):
+            if stmt := getattr(member, "_db_statement", None):
                 if isinstance(stmt, Statement):
                     # 缓存语句处理，方便直接获取
                     cls._statements[member_name] = stmt
@@ -120,7 +120,7 @@ class MapperMeta(type):
         """ 为数据库方法生成执行器，替换掉类中对应函数
 
         :param func: 目标函数
-        :param stmt: 注解语句
+        :param stmt: 声明语句
         """
         @wraps(func)
         def _executor(self, *args: P.args, **kwargs: P.kwargs) -> Any:
@@ -229,7 +229,7 @@ class SqlExecutor(Executor[SqlDatabase, SqlStatement]):
                 if self._stmt.many:
                     # 集合数据查询
                     result = self._db.query_many(sql, params)
-                    return [map_row(i, self._stmt.res_type, error_hint=self._hint) for i in result]
+                    return [map_row(row, self._stmt.res_type, error_hint=self._hint) for row in result]
                 else:
                     # 单个数据查询返回简单数据
                     if self._stmt.res_type in (int, float, str, bool, datetime):

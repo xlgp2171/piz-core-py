@@ -7,7 +7,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any, Callable, Self
 
 from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
@@ -67,7 +67,7 @@ class StopWatch:
         return int(round(time.perf_counter() * 1000))
 
     @validate_types
-    def start(self, name: str = "") -> "StopWatch":
+    def start(self, name: str = "") -> Self:
         """ 指定名称开启计时器
 
         :raises RuntimeError: 计时器无法重复启动
@@ -80,7 +80,7 @@ class StopWatch:
             self._task_name, self._start_ms = name, self._perf_ms()
         return self
 
-    def stop(self) -> "StopWatch":
+    def stop(self) -> Self:
         """ 停止当前计时器
 
         :raises RuntimeError: 计时器未启动
@@ -111,7 +111,7 @@ class StopWatch:
             self._history.append(self.last_task)
         self._task_name, self._start_ms = None, -1
 
-    def reset(self) -> "StopWatch":
+    def reset(self) -> Self:
         """ 重置当前计时器（清空缓存，重置最后一次耗时和总耗时）
 
         :raises RuntimeError: 运行中无法重置
@@ -127,7 +127,7 @@ class StopWatch:
             self._last_task = TimeTask.empty()
         return self
 
-    def accept(self, item: Any) -> "StopWatch":
+    def accept(self, item: Any) -> Self:
         self._item = item
         return self
 
@@ -159,7 +159,7 @@ class StopWatch:
     def history(self) -> list[TimeTask]:
         return self._history.copy()
 
-    def __enter__(self) -> "StopWatch":
+    def __enter__(self) -> Self:
         """ with方法进入
         """
         self.start()

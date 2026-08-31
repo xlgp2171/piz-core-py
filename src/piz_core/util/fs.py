@@ -91,7 +91,7 @@ def make_dirs(value: str | Path, parent: bool = False):
     if parent:
         value = Path(value).parent
     # 若文件夹不存在或者路径存在但不是文件夹则创建文件夹
-    if not path_exists(value) or not is_directory(value):
+    if not is_directory(value):
         os.makedirs(value, exist_ok=True)
 
 @validate_types
@@ -158,8 +158,8 @@ def write_temporary_file(value: str | bytes , prefix: str = "",
 def list_paths(value: str | Path) -> list[str]:
     """ 列出指定目录下的所有子路径，若路径不是目录则返回自身（若输入为目录则返回该目录下所有子项的完整路径，否则返回包含自身的单元素列表）
     """
-    if is_directory(value) and (path_list := os.listdir(value)):
-        return [os.path.join(value, i) for i in path_list]
+    if is_directory(value) and (paths := os.listdir(value)):
+        return [os.path.join(value, i) for i in paths]
     return []
 
 @validate_types
@@ -173,19 +173,14 @@ def walk_paths(value: str | Path, path_filter: Callable[[str, bool], bool] | Non
         def path_filter(path: str, is_dir: bool) -> bool:
             # 默认结果中不包含文件夹
             return True if path and not is_dir else False
-
-    def _each(path_list, root_path, dir_list, file_list):
-        # 文件夹过滤
-        path_list.extend(path for i in dir_list if path_filter(path := str(os.path.join(root_path, i)), True))
-        # 文件过滤
-        path_list.extend(path for i in file_list if path_filter(path := str(os.path.join(root_path, i)), False))
-
-    _path_list: list[str] = []
+    paths: list[str] = []
 
     for root, dirs, files in os.walk(value):
-        _each(_path_list, root, dirs, files)
-
-    return _path_list
+        # 文件夹过滤
+        paths.extend(path for i in dirs if path_filter(path := str(os.path.join(root, i)), True))
+        # 文件过滤
+        paths.extend(path for i in files if path_filter(path := str(os.path.join(root, i)), False))
+    return paths
 
 @validate_types
 def real_path(value: str | Path | None = None, *paths: str | Path, parent: bool = False) -> str:

@@ -1,6 +1,6 @@
 """ 控制反转组件
 
-:version: 0.3.260816
+:version: 0.3.260827
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import threading
 import tomllib
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, MISSING
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, TypeVar, overload, Generic, Final
@@ -18,8 +18,9 @@ from typing import Any, Callable, TypeVar, overload, Generic, Final
 from piz_core.const import CORE_TAG, ErrorCode, ConfigConstant, NAMESPACE, SysTag
 from piz_core.deco import validate_types
 from piz_core.infra.logger import LogPayload
-from piz_core.util import get_class_path, real_path, is_file, path_exists, get_resource_as_stream, get_nested, \
-    dict_deep_merge, current_time_millis, method_unavailable_exception, path_stat, LazyMessage
+from piz_core.util import get_class_path, real_path, is_file, get_resource_as_stream, get_nested, dict_deep_merge, \
+    current_time_millis, method_unavailable_exception, path_stat, LazyMessage
+
 
 # 捕获返回值类型
 T = TypeVar("T")
@@ -62,14 +63,14 @@ class _Container:
         return None
 
     @overload
-    def resolve(self, *, instance_type: type[T], instance_name: str | None = None,
+    def resolve(self, instance_type: type[T], *, instance_name: str | None = None,
                 ignore_errors: bool = False) -> T: ...
 
     @overload
-    def resolve(self, *, instance_type: None = None, instance_name: str, ignore_errors: bool = False) -> Any: ...
+    def resolve(self, instance_type: None = None, *, instance_name: str, ignore_errors: bool = False) -> Any: ...
 
     @validate_types
-    def resolve(self, *, instance_type: type[T] | None = None, instance_name: str | None = None,
+    def resolve(self, instance_type: type[T] | None = None, *, instance_name: str | None = None,
                      ignore_errors: bool = False) -> Any | T:
         """ 按名称和/或类型获取已注册的实例
 
@@ -179,35 +180,12 @@ def inject_hook(instance: Any, member_name: str, member: Any):
     :param member: 实例成员（和getattr(instance, member_name)有区别）
     """
     # 若为@inject标记则调用方法一次（注入）
-    if getattr(member, "__inject", None) == NAMESPACE:
+    if getattr(member, "_inject", None) == NAMESPACE:
         getattr(instance, member_name)()
 
 
 container: Final[_Container] = _Container()
 """ 容器处理单例 """
-
-
-@validate_types
-def trigger_hooks(instance: Any, *hook_funcs: Callable[[Any, str, Any], None]):
-    """ 扫描实例所有标记的方法并按函数处理（沿 MRO 覆盖父类）
-
-    :param instance: 实例
-    :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
-    """
-    if not hook_funcs:
-        return
-    called = set()
-    # 扫描实例的所有MRO（包括父类）
-    for klass in inspect.getmro(type(instance)):
-        # 遍历对应类的所有成员（若重写方法也会被再次调用）
-        for member_name, member in vars(klass).items():
-            # __init__ 的注入在实例化时已由 wrapper 完成，必须跳过，重写的方法调用也跳过
-            if member_name == "__init__" or member_name in called:
-                continue
-            called.add(member_name)
-            # 依次调用每个函数
-            for func in hook_funcs:
-                func(instance, member_name, member)
 
 
 class _Environment:
@@ -242,7 +220,7 @@ class _Environment:
         """ 读取配置文件并返回文件路径和配置内容
         """
         # 若文件存在
-        if path_exists(_path := real_path(path)) and is_file(_path):
+        if is_file(_path := real_path(path)):
             # 读取toml文件内容
             with get_resource_as_stream(_path, mode="rb") as f:
                 config = tomllib.load(f)
@@ -257,7 +235,7 @@ class _Environment:
     def is_stale(self, path: str | Path) -> bool:
         """ 文件配置是否已经不是最新（仅检查主配置文件时间戳；非文件配置的 key 恒返回 False）
         """
-        if path_exists(_path := real_path(path)):
+        if is_file(_path := real_path(path)):
             return self._file_timestamp(_path) > self._config_cache[_path][1] if _path in self._config_cache else True
         # 文件不存在或时间戳小于缓存时间戳
         return False
@@ -277,7 +255,7 @@ class _Environment:
         :raises FileNotFoundError: 文件未找到异常
         """
         # 先要获取文件的时间戳
-        if path_exists(_path := real_path(path)):
+        if is_file(_path := real_path(path)):
             file_timestamp = self._file_timestamp(_path)
         else:
             # 文件未找到
@@ -288,7 +266,8 @@ class _Environment:
             # 加载主配置
             _, config = self._load_config(_path)
             # 遍历扩展配置并合并
-            for i in get_nested(config, *ConfigConstant.PROFILES_ACTIVE, expected=list, default=[]):
+            for i in get_nested(config, *ConfigConstant.PROFILES_ACTIVE,
+                                expected=list, default_factory=list):
                 config = dict_deep_merge(config, self._load_config(real_path(_path,i, parent=True))[1])
             logger.debug(LazyMessage(lambda: LogPayload.encode(
                 SysTag.SYSTEM, f"{CORE_TAG}Config loaded,\t\n\tcontent: {repr(config)}")))
@@ -301,12 +280,14 @@ class _Environment:
         return _path, self._config_cache[_path][1]
 
     @validate_types
-    def get_config_value(self, key_path: str, path: str | None = None, default: Any = None) -> Any:
+    def get_config_value(self, key_path: str, path: str | None = None,
+                         default: Any = None, default_factory: Any = MISSING) -> Any:
         """ 获取配置对应的值
 
         :param key_path: 配置的链路（支持"."分隔）
         :param path: 配置路径（默认为None，即加载默认的配置）
         :param default: 若配置无法获取返回的默认值
+        :param default_factory: 默认值工厂（通常是类或者方法，如default_factory=dict）（默认MISSING）
         :raises FileNotFoundError: 默认配置文件未找到异常
         """
         if path is None:
@@ -314,8 +295,9 @@ class _Environment:
             path = self._default_path
         # 若path为空则使用默认配置
         if path in self._config_cache:
-            return get_nested(self._config_cache[path][0], *key_path.split("."), default=default)
-        return default
+            return get_nested(self._config_cache[path][0], *key_path.split("."),
+                              default=default, default_factory=default_factory)
+        return default if default_factory is MISSING else default_factory()
 
     @validate_types
     def set_config(self, path: str, config: dict, timestamp: int = -1, merge: bool = True):
@@ -392,7 +374,7 @@ class Injected(BaseDescriptor[T]):
     """ 获取实例的描述符
     """
     @validate_types
-    def __init__(self, *, instance_type: type[T] | None = None, instance_name: str | None = None):
+    def __init__(self, instance_type: type[T] | None = None, *, instance_name: str | None = None):
         """
         :param instance_type: 实例类型（泛型）
         :param instance_name: 实例名称（当类型有多个名称时）
@@ -428,15 +410,17 @@ class Prop(BaseDescriptor[Any]):
     """ 获取配置的描述符
     """
     @validate_types
-    def __init__(self, key_path: str, /, *, default: Any = None, process_func: Callable[[Any], Any] | None = None):
+    def __init__(self, key_path: str, /, *, default: Any = None,
+                 default_factory: Any = MISSING, process_func: Callable[[Any], Any] | None = None):
         """
         :param key_path: 配置路线
         :param default: 若配置不存在的默认值
+        :param default_factory: 默认值工厂（通常是类或者方法，如default_factory=dict）（默认MISSING）
         :param process_func: 数据加工函数
         """
         super().__init__()
         self._key_path = key_path
-        self._default = default
+        self._default = default if default_factory is MISSING else default_factory()
         self._process_func = process_func
 
     def get_value(self) -> Any:
