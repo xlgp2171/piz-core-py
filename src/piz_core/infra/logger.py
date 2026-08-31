@@ -217,7 +217,7 @@ def _set_logger_level(logger_levels: dict[str, int]):
     """
     for k, v in logger_levels.items():
         logging.getLogger(k).setLevel(v)
-        print(f"{now_as_string()}[INFO]Set logger level,\tmodule: {k},\tlevel: {v}")
+        print(f"{now_as_string()}[INFO]Set logger level,\tmodule: {k},\tlevel: {logging.getLevelName(v)}")
 
 @validate_types
 def setup_logging(file_name: str = "", level: int = logging.INFO, *, log_format: str = LOG_SIMPLE_FORMAT,
@@ -259,7 +259,7 @@ def setup_logging(file_name: str = "", level: int = logging.INFO, *, log_format:
     if logger_levels:
         _set_logger_level(logger_levels)
     # 输出启动内容
-    print(f"{now_as_string()}[INFO]logger initialized: {'; '.join([i.get_name() for i in handlers])}")
+    print(f"{now_as_string()}[INFO]logger initialized: {'; '.join([handler.get_name() for handler in handlers])}")
 
 def initialize_system_logging():
     """ 日志系统初始化
