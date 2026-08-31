@@ -1,5 +1,17 @@
 # 版本更新日志
 
+## v0.3.3
+1. 新增错误码
+2. 新增reflect工具函数
+3. 新增logger组件过滤功能
+4. 修改ident和get_nested工具函数方法
+5. 修改装饰器@validate_types和@inject以适配编辑器推断
+6. 修改dt模块StopWatch的print_func回调函数输入参数
+7. 优化代码逻辑和结构
+8. 优化系统日志输出
+9. 修复已知的问题
+10. 补充测试用例
+
 ## v0.3.2
 1. 新增inject装饰器支持Prop描述符配置
 2. 新增component装饰器和provide装饰器支持hook函数，用于支持自定义的方法装饰器
