@@ -1,6 +1,6 @@
 """ 常量
 
-:version: 0.3.260824
+:version: 0.3.260903
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -124,6 +124,8 @@ class ErrorCode(BaseEnum):
     P_331 = ("P331", "Row length mismatch,\texpected: {0},\tgot: {1},\targs: {2}{3}", "行长度不匹配，期望{0}实际{1}")
     P_332 = ("P332", "Empty row data,\targs: {0}{1}", "行数据为空，参数: {0}")
     P_333 = ("P333", "Nested row data not allowed,\targs: {0}{1}", "不支持嵌套行数据，参数: {0}")
+    P_340 = ("P340", "Instance type inference failed", "实例类型推断失败")
+    P_341 = ("P341", "Cannot infer instance type from arguments{0}", "无法从参数推断实例类型，参数: {0}")
     P_400 = ("P400", "Parameter out of range", "参数超出范围")
     P_410 = ("P410", "Parameter value out of range", "参数值超出范围")
     P_411 = ("P411", "Value below minimum,\tvalue: {0},\tmin: {1}{2}", "值{0}低于最小值{1}")

@@ -9,8 +9,7 @@ from piz_core.deco.event import event_listener
 from piz_core.infra import setup_logging, LOG_VERBOSE_FORMAT
 from piz_core.infra.db import BaseMapper, SqlDatabase
 from piz_core.infra.event import BaseEvent, event_bus
-from piz_core.infra.ioc import Injected, Prop, environment
-
+from piz_core.infra.ioc import Injected, Prop, environment, Scope
 
 # Settings.log_mode = LogMode.RECORD | LogMode.PUBLISH
 setup_logging("debug", logging.DEBUG,
@@ -133,8 +132,29 @@ class Sample:
     def is_empty(self) -> bool:
         return len(self._sample_data) <= 0
 
+    def show(self):
+        print("----------", self._name, self._count, "----------")
+
     def __str__(self):
         return f"{self._count}"
+
+@component(scope=Scope.SINGLETON)
+class SingletonClass(Sample):
+    def __init__(self):
+        super().__init__("SINGLETON")
+        self.show()
+
+@component(scope=Scope.PROTOTYPE)
+class PrototypeClass(Sample):
+    def __init__(self):
+        super().__init__("PROTOTYPE")
+        self.show()
+
+@component(scope=Scope.STANDALONE)
+class StandaloneClass(Sample):
+    def __init__(self):
+        super().__init__("STANDALONE")
+        self.show()
 
 @component
 class DbMapper:
@@ -161,7 +181,7 @@ class DbMapper:
 
     @validate_types
     def load_item(self, k: str) -> str:
-        return str(data[k]) if (data := self.load()) else util.EMPTY
+        return str(data[k]) if (data := self.load()) else ""
 
 @component(name="data_builder")
 class DataBuilder:

@@ -1,6 +1,6 @@
 """ 依赖注入装饰器
 
-:version: 0.3.260824
+:version: 0.3.260903
 """
 import inspect
 from functools import wraps
@@ -8,8 +8,7 @@ from typing import TypeVar, ParamSpec, Callable, get_args, Any, Sequence, cast
 
 from piz_core.const import NAMESPACE, ErrorCode
 from piz_core.infra.event import register_hook
-from piz_core.infra.ioc import Qualifier, container, Prop, inject_hook
-
+from piz_core.infra.ioc import Qualifier, container, Prop, inject_hook, Scope
 
 # 捕获任意参数签名
 P = ParamSpec("P")
@@ -89,7 +88,7 @@ def _try_resolve(instance_type: type | None, instance_name: str, value: Any) -> 
             raise
         return None
 
-def component(target_cls: type | None = None, /, *, name: str | None = None,
+def component(target_cls: type | None = None, /, *, name: str | None = None, scope: Scope = Scope.SINGLETON,
               hook_funcs: Sequence[Callable[[Any, str, Any], None]] | None = None) -> Callable | type:
     """ 类依赖装饰器
 
@@ -100,6 +99,7 @@ def component(target_cls: type | None = None, /, *, name: str | None = None,
 
     :param target_cls: 被装饰的类（@component 无参形式时由解释器自动传入）
     :param name: 注册到容器的实例名称，默认按 Spring 规则取类名首字母小写
+    :param scope: 作用范围（SINGLETON为存储单例，PROTOTYPE为存储类型，STANDALONE为不存储）
     :param hook_funcs: 实例初始化时的钩子函数组合（输入为：实例，成员名称，实例成员）
     :raises ValueError: 实例函数无效
     """
@@ -110,7 +110,7 @@ def component(target_cls: type | None = None, /, *, name: str | None = None,
             _assemble(instance := cls(), hook_funcs)
             return instance
         # 实例化并注册（ensure幂等：同名已注册时复用已有实例，不会重复实例化）
-        container.ensure(name if name else decapitalize(cls.__name__), _new_instance)
+        container.ensure(name if name else decapitalize(cls.__name__), _new_instance, cls, scope)
         # 返回原类，不影响继承、直接实例化等正常使用
         return cls
     # 如果target_cls不是None，说明是直接使用无参装饰器

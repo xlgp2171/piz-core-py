@@ -1,6 +1,6 @@
 """ 控制反转组件
 
-:version: 0.3.260827
+:version: 0.3.260903
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import tomllib
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, MISSING
+from enum import Enum, auto
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, TypeVar, overload, Generic, Final
@@ -25,6 +26,10 @@ from piz_core.util import get_class_path, real_path, is_file, get_resource_as_st
 # 捕获返回值类型
 T = TypeVar("T")
 logger = logging.getLogger(__name__)
+TYPE_CALLABLE: Final[str] = "callable"
+""" 函数类型 """
+TYPE_INSTANCE: Final[str] = "instance"
+""" 实例类型 """
 
 
 @dataclass(frozen=True)
@@ -35,27 +40,49 @@ class Qualifier:
     """ 实例名称 """
 
 
+class Scope(Enum):
+    """ Scope枚举（适用于component装饰器）
+    """
+    # 存储单例，用的时候直接获取
+    SINGLETON = auto()
+    # 存储类型，用的时候再实例化
+    PROTOTYPE = auto()
+    # 不存储，被扫描时初始化
+    STANDALONE = auto()
+
+
 class _Container:
     """ 容器配置
     """
-    # 实例缓存（格式为k: instance_name, v: instance），存储为单例
-    _instance_cache: dict[str, Any] = {}
+    # 实例缓存（格式为k: instance_name, v: instance or instance_func），存储为单例
+    _instance_cache: dict[str, object | Callable] = {}
     # 辅助索引（格式为k: instance_type, v: instance_names）
     _type_index: dict[type, set[str]] = defaultdict(set)
     # 线程锁，保护对共享状态的并发访问
     _lock = threading.RLock()
 
-    def inspect(self) -> MappingProxyType:
+    def inspect(self) -> MappingProxyType[str, tuple[str, str]]:
         """ 检查容器主缓存（k: 实例名称, v: 实例类型）
         """
         with self._lock:
-            return MappingProxyType({k: get_class_path(v) for k, v in self._instance_cache.items()})
+            name_to_type, result = {name: _type for _type, names in self._type_index.items() for name in names}, {}
+
+            for name, instance_or_func in self._instance_cache.items():
+                if isinstance(instance_or_func, Callable):
+                    _v = name_to_type.get(name), TYPE_CALLABLE
+                else:
+                    _v = instance_or_func, TYPE_INSTANCE
+                result[name] = get_class_path(_v[0]), _v[1]
+            return MappingProxyType(result)
 
     def _get_instance(self, name: str) -> Any:
-        """ 获取实例（调用方必须已持有 self._lock） """
-        ...
+        """ 获取实例（调用方必须已持有 self._lock）
+
+        - 未验证实例初始化异常
+        """
         if name in self._instance_cache:
-            instance = self._instance_cache[name]
+            _instance = self._instance_cache[name]
+            instance = _instance() if isinstance(_instance, Callable) else _instance
             logger.debug(LazyMessage(
                 lambda: LogPayload.encode(SysTag.SYSTEM,
                     f"{CORE_TAG}Resolve instance,\t\n\tname: {name},\t\n\tclass: {get_class_path(instance)}")))
@@ -95,11 +122,11 @@ class _Container:
                 else:
                     instance_names: set[str] = set()
                     # 获取所有的可能关联类型
-                    for k, v in self._type_index.items():
+                    for _type, names in self._type_index.items():
                         try:
                             # 判断输入类型是否是缓存的子类
-                            if issubclass(k, instance_type):
-                                instance_names |= v
+                            if issubclass(_type, instance_type):
+                                instance_names |= names
                         except TypeError:
                             continue
                 # 若无法按类型进行匹配
@@ -136,9 +163,11 @@ class _Container:
         return None
 
     @validate_types
-    def ensure(self, instance_name: str, instance_func: Callable[[], Any]) -> Any:
-        """ 注册实例到容器，直接返回实例
+    def ensure(self, instance_name: str, instance_func: Callable[..., Any], instance_cls: type | None = None,
+               scope: Scope = Scope.SINGLETON) -> Any:
+        """ 注册实例或实例函数到容器，直接返回实例
 
+        - 统一返回实例，实例函数会在实例化后返回
         - 若指定名称已存在实例，返回已存在实例（幂等）
         - 若指定名称未存在实例，返回新创建实例
         - 若实例为 None，抛出 ValueError
@@ -146,31 +175,50 @@ class _Container:
 
         :param instance_name: 实例唯一标识名
         :param instance_func: 要注册的实例初始化函数
-        :raises ValueError: 实例函数无效
+        :param instance_cls: 实例类型
+        :param scope: 作用范围（SINGLETON为存储单例，PROTOTYPE为存储类型，STANDALONE为不存储）
+        :raises ValueError: 实例函数无效; 实例类型无法推断
         """
         # 若实例已注册则直接返回
         if (existing := self.resolve(instance_name=instance_name, ignore_errors=True)) is not None:
-            logger.debug(LazyMessage(lambda: LogPayload.encode(
-                SysTag.SYSTEM, f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name}")))
+            logger.debug(LazyMessage(lambda: LogPayload.encode(SysTag.SYSTEM,
+                f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name},\t\n\tscope: {scope}")))
             return existing
-        # 若实例生成函数为None
-        elif instance_func is None or (instance := instance_func()) is None:
-            # 生成函数无效
-            raise ValueError(ErrorCode.P_111.format_message(instance_name))
+        # 若作用范围需要实例化
+        if scope in (Scope.SINGLETON, Scope.STANDALONE):
+            # 若实例生成函数为None
+            if (instance := instance_func()) is None:
+                # 生成函数无效
+                raise ValueError(ErrorCode.P_111.format_message(instance_name))
+            elif instance_cls and (instance_type := type(instance)) is not instance_cls:
+                # 由于参数组合不正确而无法判断实例类型
+                raise ValueError(ErrorCode.P_341.format_message(
+                    f",\tscope: {scope},\tinstance_cls: {get_class_path(instance_cls)},\t"
+                    f"instance_type: {get_class_path(instance_type)}"))
+        elif scope == Scope.PROTOTYPE and instance_cls is None:
+            # 由于参数组合不正确而无法判断实例类型
+            raise ValueError(ErrorCode.P_341.format_message(f",\tscope: {scope},\tinstance_cls: None"))
         else:
-            with self._lock:
-                if (existing := self._get_instance(instance_name)) is not None:
-                    logger.debug(LazyMessage(lambda: LogPayload.encode(
-                        SysTag.SYSTEM, f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name}")))
-                    return existing
+            instance = None
+        # 单一线程处理
+        with self._lock:
+            if (existing := self._get_instance(instance_name)) is not None:
+                logger.debug(LazyMessage(lambda: LogPayload.encode(SysTag.SYSTEM,
+                    f"{CORE_TAG}Instance existing,\t\n\tname: {instance_name},\t\n\tscope: {scope}")))
+                return existing
+            # 满足作用范围再注册
+            if scope in (Scope.SINGLETON, Scope.PROTOTYPE):
                 # 这个时候再实例化
-                self._instance_cache[instance_name] = instance
-                logger.info(LogPayload.encode(
-                    SysTag.SYSTEM, f"{CORE_TAG}Register instance,\tname: {instance_name},\t"
-                                   f"class: {get_class_path(instance)}"))
+                self._instance_cache[instance_name] = instance if scope == Scope.SINGLETON else instance_func
                 # 将实例名称加入类型缓存
-                self._type_index[type(instance)].add(instance_name)
-                return instance
+                self._type_index[instance_type := instance_cls if instance_cls else type(instance)].add(instance_name)
+                logger.info(LogPayload.encode(SysTag.SYSTEM,
+                    f"{CORE_TAG}Register instance,\t"
+                    f"name: {instance_name},\tclass: {get_class_path(instance_type)},\tscope: {scope}"))
+            else:
+                logger.debug(LazyMessage(lambda: LogPayload.encode(SysTag.SYSTEM,
+                    f"{CORE_TAG}Instance initialized,\t\n\tname: {instance_name},\t\n\tscope: {scope}")))
+        return instance
 
 def inject_hook(instance: Any, member_name: str, member: Any):
     """ 注入钩子函数
