@@ -1,9 +1,9 @@
 """ 验证装饰器
 
-:version: 0.3.260824
+:version: 0.3.260903
 """
 from functools import wraps
-from typing import TypeVar, Callable, Any, overload, cast, ParamSpec
+from typing import TypeVar, Callable, Any, overload, cast
 
 from piz_core.setting import Settings
 
@@ -32,11 +32,13 @@ def validate_types(target_func: F | None = None, /, *, strict: bool = True) -> C
             # 全局开关
             if Settings.validate_types_enabled:
                 from piz_core.util import iter_arguments, validate_type, validate_constraint, get_func_path
+                # 全局设置
+                _strict = Settings.validate_types_strict
                 # 处理每个参数
                 for _name, annotation, _value, arguments in iter_arguments(func, *args, **kwargs):
                     # 验证参数和类型
-                    validate_type(
-                        _value, annotation, error_hint=f",\tfunc: {get_func_path(func)},\targs: {_name}", strict=strict)
+                    validate_type(_value, annotation, error_hint=f",\tfunc: {get_func_path(func)},\targs: {_name}",
+                                  strict=strict if _strict is None else _strict)
                     # 验证取值范围（针对Annotated类型）
                     validate_constraint(annotation, _name, arguments, error_hint=f",\tfunc: {get_func_path(func)}")
             return func(*args, **kwargs)

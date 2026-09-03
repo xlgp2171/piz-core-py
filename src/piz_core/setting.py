@@ -1,6 +1,6 @@
 """ 统一配置
 
-:version: 0.3.260815
+:version: 0.3.260903
 """
 from dataclasses import dataclass
 
@@ -11,5 +11,8 @@ class Settings:
     """ 节点标识（默认0，范围0-63） """
     validate_types_enabled: bool = True
     """ 方法输入类型验证开关（默认True） """
+    # None为使用参数自己的值，其它值则代表强行干涉
+    validate_types_strict: bool | None = None
+    """ 方法输入类型严格验证（默认None） """
     log_mode = 1
     """ 日志模式（默认LogMode.RECORD） """
