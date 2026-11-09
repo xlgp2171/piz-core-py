@@ -11,8 +11,9 @@ from piz_core.util.coll import (
     sequence_merge)
 from piz_core.util.crypto import to_hash, to_base64_as_string, from_base64_as_stream, from_base64_as_string
 from piz_core.util.dt import (
-    current_time_millis, to_datetime, format_datetime, format_timestamp, now_as_string, add_seconds, add_minutes,
-    add_hours, add_days, add_months, add_years, TimeTask, StopWatch, DATE_PATTERN, TIME_PATTERN, DATETIME_PATTERN)
+    current_time_millis, to_datetime, format_datetime, format_timestamp, now_as_string, now_as_utc_string, add_seconds,
+    add_minutes, add_hours, add_days, add_months, add_years, TimeTask, StopWatch,
+    DATE_PATTERN, TIME_PATTERN, DATETIME_PATTERN, UTC_DATETIME_PATTERN)
 from piz_core.util.prim import (
     default_string, equals_ignore_case, is_blank, has_text, contains_whitespace, trim_all_whitespace,
     startswith_ignore_case, endswith_ignore_case, substring_after, capitalize, uncapitalize, decapitalize,

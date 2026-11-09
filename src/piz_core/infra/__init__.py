@@ -4,7 +4,7 @@ from piz_core.infra.logger import (
 from piz_core.infra.web import http_client, Response
 from piz_core.infra.db import BaseMapper, SqlExecutor
 from piz_core.infra.event import BaseEvent, event_bus
-from piz_core.infra.ioc import container, environment, Qualifier, Injected, Prop
+from piz_core.infra.ioc import container, environment, Qualifier, Injected, Prop, Scope
 
 
 __all__ = [
@@ -17,7 +17,7 @@ __all__ = [
     "id_generator",
     # ioc
     "container", "environment",
-    "Qualifier", "Injected", "Prop",
+    "Qualifier", "Injected", "Prop", "Scope",
     # logger
     "setup_logging", "initialize_system_logging",
     "LogMode", "LogPayload",

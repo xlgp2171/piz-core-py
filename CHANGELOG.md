@@ -1,5 +1,11 @@
 # 版本更新日志
 
+## v0.3.4
+1. 新增错误码
+2. 新增全局设置Settings.validate_types_strict
+3. 新增Scope参数用于装饰器component
+4. 新增dt函数
+
 ## v0.3.3
 1. 新增错误码
 2. 新增reflect工具函数

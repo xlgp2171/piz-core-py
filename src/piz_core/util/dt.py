@@ -1,12 +1,12 @@
 """ 日期时间（datetime）处理工具
 
-:version: 0.3.260819
+:version: 0.3.261109
 """
 import calendar
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Self
 
 from piz_core.const import ErrorCode
@@ -19,6 +19,8 @@ TIME_PATTERN = "%H:%M:%S"
 """ 标准时间格式（HH:mm:ss）"""
 DATETIME_PATTERN = f"{DATE_PATTERN} {TIME_PATTERN}"
 """ 标准日期时间格式（yyyy-MM-dd HH:mm:ss） """
+UTC_DATETIME_PATTERN = f"{DATE_PATTERN}T{TIME_PATTERN}Z"
+""" UTC日期时间格式（yyyy-MM-ddTHH:mm:ssZ） """
 
 
 @dataclass(frozen=True, slots=True)
@@ -226,6 +228,12 @@ def now_as_string(pattern = DATETIME_PATTERN) -> str:
     :param pattern: 日期时间格式
     """
     return format_datetime(datetime.now(), pattern)
+
+@validate_types
+def now_as_utc_string() -> str:
+    """ 将当前日期时间转换为UTC格式的日期时间字符串
+    """
+    return format_datetime(datetime.now(timezone.utc), UTC_DATETIME_PATTERN)
 
 @validate_types
 def add_seconds(value: datetime | None = None, amount: int = 1):
