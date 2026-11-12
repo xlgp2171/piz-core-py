@@ -1256,15 +1256,19 @@ class TestFilesystemUtils(unittest.TestCase):
         open(file2, "w").close()
         result = filesystem.list_paths(self.temp_dir)
         # sub, a.txt, b.txt
-        self.assertIn(file1, result)
-        self.assertIn(file2, result)
-        self.assertIn(sub_dir, result)
+        self.assertIn(file1, [i[0] for i in result])
+        self.assertIn(file2, [i[0] for i in result])
+        self.assertIn(sub_dir, [i[0] for i in result])
         # 测试空目录
         empty_dir = os.path.join(self.temp_dir, "empty")
         os.makedirs(empty_dir)
         self.assertEqual(filesystem.list_paths(empty_dir), [])
         # 测试非目录路径（文件）
-        self.assertEqual(filesystem.list_paths(file1), [])
+        self.assertEqual(filesystem.list_paths(file1)[0][0], filesystem.real_path(file1))
+        result = filesystem.list_paths(self.temp_dir, False)
+        self.assertIn("sub", [i[0] for i in result])
+        self.assertIn("a.txt", [i[0] for i in result])
+        self.assertIn("b.txt", [i[0] for i in result])
 
     def test_walk_paths(self):
         # 构建目录结构
@@ -1284,19 +1288,19 @@ class TestFilesystemUtils(unittest.TestCase):
         # 测试自定义 path_filter（只返回 .txt 文件）
         def txt_only(path, is_dir):
             return not is_dir and path.endswith(".txt")
-        txt_files = filesystem.walk_paths(root, path_filter=txt_only)
+        txt_files = filesystem.walk_paths(root, filter_func=txt_only)
         self.assertEqual(len(txt_files), 3)
         # 测试自定义 path_filter（包含目录）
         def include_dirs(path, is_dir):
             return True
-        all_paths = filesystem.walk_paths(root, path_filter=include_dirs)
+        all_paths = filesystem.walk_paths(root, filter_func=include_dirs)
         self.assertGreater(len(all_paths), 3)  # 包含目录
         # 测试 path_filter 过滤特定目录
         def exclude_dir2(path, is_dir):
             if is_dir:
                 return "dir2" not in path
             return True
-        filtered = filesystem.walk_paths(root, path_filter=exclude_dir2)
+        filtered = filesystem.walk_paths(root, filter_func=exclude_dir2)
         # file1.txt 和 file2.txt
         self.assertIn(os.path.join(root, "file1.txt"), filtered)
         self.assertIn(os.path.join(root, "dir1", "file2.txt"), filtered)

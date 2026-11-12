@@ -1,14 +1,14 @@
 """ 数据库相关处理工具
 
-:version: 0.3.260820
+:version: 0.3.261109
 """
 import inspect
 import re
-from dataclasses import is_dataclass, fields
 from typing import Any, TypeVar, overload
 
 from piz_core.const import ErrorCode
 from piz_core.deco import validate_types
+from piz_core.util.ser import dataclass_values
 from piz_core.util.valid import is_param_object
 from piz_core.util.reflect import get_class_path, get_parameters, has_kwargs_param
 from piz_core.util.prim import regex_extract_all
@@ -46,8 +46,10 @@ def _to_row(item: Any, *, error_hint: str = "") -> tuple:
     """
     if isinstance(item, (tuple, list)):
         return tuple(item)
-    if is_dataclass(item):
-        return tuple(getattr(item, field.name) for field in fields(item))
+    try:
+        return dataclass_values(item)
+    except TypeError:
+        pass
     if isinstance(item, dict):
         return tuple(item.values())
     if is_param_object(item):

@@ -4,7 +4,9 @@
 1. 新增错误码
 2. 新增全局设置Settings.validate_types_strict
 3. 新增Scope参数用于装饰器component
-4. 新增dt函数
+4. 新增dt工具函数
+5. 修改fs工具list_paths函数的参数和返回值
+6. 更新相关测试
 
 ## v0.3.3
 1. 新增错误码

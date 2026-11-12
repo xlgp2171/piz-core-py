@@ -1,12 +1,13 @@
 """ 序列化（serialization）处理工具
 
-:version: 0.3.260813
+:version: 0.3.261109
 """
 import json
 import pickle
-from dataclasses import is_dataclass, fields, InitVar
+from dataclasses import is_dataclass, fields
 from datetime import datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from piz_core.const import ErrorCode
@@ -72,4 +73,4 @@ def dataclass_values(value: Any, *, error_hint: str = "") -> tuple:
     """
     if not is_dataclass(value):
         raise TypeError(ErrorCode.P_310.format_message("dataclass", get_class_path(value), error_hint))
-    return tuple(getattr(value, f.name) for f in fields(value) if not isinstance(f.type, InitVar))
+    return tuple(getattr(value, field.name) for field in fields(value))

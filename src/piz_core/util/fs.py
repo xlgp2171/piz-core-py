@@ -1,6 +1,6 @@
 """ 文件系统（filesystem）处理工具
 
-:version: 0.3.260813
+:version: 0.3.261109
 """
 import os
 import sys
@@ -155,31 +155,40 @@ def write_temporary_file(value: str | bytes , prefix: str = "",
     return temp.name
 
 @validate_types
-def list_paths(value: str | Path) -> list[str]:
-    """ 列出指定目录下的所有子路径，若路径不是目录则返回自身（若输入为目录则返回该目录下所有子项的完整路径，否则返回包含自身的单元素列表）
+def list_paths(value: str | Path, full_path: bool = True) -> list[tuple[str, bool]]:
+    """ 列出指定目录下的所有子路径以及路径是否目录
+
+    - 若指定路径为目录则返回该目录下所有子项的完整路径
+    - 若指定路径不为目录则返回包含自身的单元素列表
+
+    :param value: 指定路径
+    :param full_path: 是否返回全路径
     """
-    if is_directory(value) and (paths := os.listdir(value)):
-        return [os.path.join(value, i) for i in paths]
-    return []
+    if is_directory(value):
+        # 扫描当前目录
+        with os.scandir(value) as items:
+            return [(item.path if full_path else item.name, item.is_dir()) for item in items]
+    return [(real_path(value), False)]
 
 @validate_types
-def walk_paths(value: str | Path, path_filter: Callable[[str, bool], bool] | None = None) -> list[str]:
-    """递归遍历目录，返回符合条件的文件或目录路径列表
+def walk_paths(value: str | Path, filter_func: Callable[[str, bool], bool] | None = None) -> list[str]:
+    """ 递归遍历目录，返回符合条件的文件或目录路径列表
 
     :param value: 待遍历的根目录路径
-    :param path_filter: 路径过滤函数，接收路径和是否为目录两个参数，返回 True 表示保留该路径；默认为过滤掉目录仅保留文件
+    :param filter_func: 路径过滤函数，接收路径和是否为目录两个参数，返回 True 表示保留该路径；默认为过滤掉目录仅保留文件的函数
     """
-    if path_filter is None:
-        def path_filter(path: str, is_dir: bool) -> bool:
+    if filter_func is None:
+        def _filter(path: str, is_dir: bool) -> bool:
             # 默认结果中不包含文件夹
             return True if path and not is_dir else False
+        filter_func = _filter
     paths: list[str] = []
 
     for root, dirs, files in os.walk(value):
         # 文件夹过滤
-        paths.extend(path for i in dirs if path_filter(path := str(os.path.join(root, i)), True))
+        paths.extend(path for i in dirs if filter_func(path := str(os.path.join(root, i)), True))
         # 文件过滤
-        paths.extend(path for i in files if path_filter(path := str(os.path.join(root, i)), False))
+        paths.extend(path for i in files if filter_func(path := str(os.path.join(root, i)), False))
     return paths
 
 @validate_types

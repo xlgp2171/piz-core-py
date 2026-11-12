@@ -36,8 +36,8 @@ __all__ = [
     # db
     "build_params", "build_sql_and_params", "map_row",
     # dt
-    "current_time_millis", "to_datetime", "format_datetime", "format_timestamp", "now_as_string", "add_seconds",
-    "add_minutes", "add_hours", "add_days", "add_months", "add_years",
+    "current_time_millis", "to_datetime", "format_datetime", "format_timestamp", "now_as_string", "now_as_utc_string",
+    "add_seconds", "add_minutes", "add_hours", "add_days", "add_months", "add_years",
     "TimeTask", "StopWatch",
     "DATE_PATTERN", "TIME_PATTERN", "DATETIME_PATTERN",
     # fs
